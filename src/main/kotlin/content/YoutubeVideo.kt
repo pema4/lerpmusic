@@ -8,6 +8,7 @@ enum class YoutubeVideo(
     val code: String,
 ) : ContentEntry {
     MULTIMOD_SYNTH("sRGyNg3hKn8"),
+    PROGRAMMABLE_SYNTH("vcLeD-igvMo"),
     SCALESYNTH("N_FDOf2PNL4"),
     MUSICBX_EDITOR("HmA9xVxc1fE"),
     ;
