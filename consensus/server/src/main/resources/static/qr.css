@@ -1,0 +1,19 @@
+#qr-wrapper, html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+}
+
+#qr-wrapper {
+    display: flex;
+    justify-content: center; /* align horizontal */
+    align-items: center; /* align vertical */
+}
+
+#qr-img {
+    image-rendering: pixelated;
+    /*align-self: center;*/
+    /*vertical-align: middle;*/
+    /*horiz-align: center;*/
+    /*object-fit: contain;*/
+}

@@ -1,0 +1,46 @@
+#consensus-wrapper, html, body {
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+    touch-action: pan-x pan-y;
+}
+
+#consensus-wrapper {
+    display: flex;
+    justify-content: center; /* align horizontal */
+    align-items: center; /* align vertical */
+    /*background: beige;*/
+
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+#consensus-wrapper:hover {
+    cursor: pointer;
+}
+
+#consensus-text {
+    font-style: normal;
+    font-size: 8rem;
+    /*text-align: center;*/
+    /*word-spacing: 100000px;*/
+}
+
+
+@media (prefers-color-scheme: light) {
+    body {
+        background: #FFF;
+        color: #222;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #222;
+        color: #FFF;
+    }
+}
