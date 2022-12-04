@@ -3,18 +3,17 @@ package lerpmusic.portfolio
 import io.ktor.client.request.get
 import io.ktor.http.HttpStatusCode
 import io.ktor.server.testing.testApplication
-import lerpmusic.portfolio.config.configureRouting
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ApplicationTest {
     @Test
-    fun testRoot() = testApplication {
+    fun testMasterPortfolio() = testApplication {
         application {
-            configureRouting()
+            portfolioModule()
         }
 
-        client.get("/").apply {
+        client.get("/master-portfolio").apply {
             assertEquals(HttpStatusCode.OK, status)
         }
     }

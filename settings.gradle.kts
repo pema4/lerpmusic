@@ -1,6 +1,18 @@
-rootProject.name = "lerpmusic-site"
+rootProject.name = "lerpmusic"
+
+include(
+    ":btle:btle-domain",
+    ":btle:btle-scrapper",
+    ":btle:btle-server",
+    ":btle:btle-live-receiver",
+)
+
+include(
+    ":consensus:consensus-domain",
+    ":consensus:consensus-server",
+    ":consensus:consensus-live-device",
+)
 
 include(":portfolio")
+
 include(":website")
-include(":consensus:domain", ":consensus:server", ":consensus:live-device")
-include(":btle:scrapper")
