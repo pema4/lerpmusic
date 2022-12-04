@@ -1,5 +1,7 @@
 package lerpmusic.btle.domain.receiver
 
+import kotlinx.serialization.Serializable
+
 /**
  * Сообщения, отправляемые ресиверу
  */

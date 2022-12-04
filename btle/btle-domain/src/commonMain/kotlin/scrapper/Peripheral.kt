@@ -1,5 +1,6 @@
 package lerpmusic.btle.domain.scrapper
 
+import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 
 @Serializable

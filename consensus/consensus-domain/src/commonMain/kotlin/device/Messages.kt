@@ -1,6 +1,7 @@
 package lerpmusic.consensus.domain.device
 
 import lerpmusic.consensus.domain.note.Note
+import kotlinx.serialization.Serializable
 
 /**
  * Сообщения, получаемые от девайса

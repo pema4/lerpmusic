@@ -1,5 +1,7 @@
 package lerpmusic.btle.domain.scrapper
 
+import kotlinx.serialization.Serializable
+
 /**
  * Сообщения, получаемые от скрэппера
  */

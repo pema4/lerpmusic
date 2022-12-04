@@ -1,6 +1,7 @@
 package lerpmusic.consensus.domain.listener
 
 import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
 
 /**
  * Сообщения, получаемые от слушателя
