@@ -37,7 +37,7 @@ kotlin {
     }
 }
 
-val prepareDistribution = task<Copy>("prepareDistribution") {
+val prepareDistribution = task<Sync>("prepareDistribution") {
     group = "deployment"
     dependsOn(
         ":btle:btle-scrapper:jsPublicPackageJson",

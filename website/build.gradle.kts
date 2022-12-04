@@ -10,8 +10,8 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
-    implementation("ch.qos.logback:logback-classic:1.4.5")
     implementation("io.github.microutils:kotlin-logging")
+    runtimeOnly("ch.qos.logback:logback-classic:1.4.5")
 
     implementation("io.ktor:ktor-serialization-kotlinx-json")
     implementation("io.ktor:ktor-server-call-id")
@@ -21,7 +21,7 @@ dependencies {
     implementation("io.ktor:ktor-server-http-redirect")
     implementation("io.ktor:ktor-server-netty")
     implementation("io.ktor:ktor-server-websockets")
-    implementation("io.ktor:ktor-server-auto-head-response-jvm")
+    implementation("io.ktor:ktor-server-auto-head-response")
 
     testImplementation("io.ktor:ktor-server-tests")
     testImplementation("io.kotest.extensions:kotest-assertions-ktor:1.0.3")
