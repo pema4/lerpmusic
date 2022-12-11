@@ -26,6 +26,7 @@ kotlin {
                 implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
                 implementation("io.ktor:ktor-client-js")
                 implementation("io.github.microutils:kotlin-logging")
+                implementation("org.jetbrains.kotlinx:kotlinx-cli")
 
                 implementation(npm("abort-controller", "3.0.0"))
                 implementation(npm("node-fetch", "2.6.1"))
@@ -58,4 +59,27 @@ val prepareDistribution = task<Sync>("prepareDistribution") {
         }
     }
     into(buildDir.dir("dist"))
+}
+
+val deployScrapper = task<Task>("deployScrapper") {
+    dependsOn(prepareDistribution)
+    group = "deployment"
+
+    doLast {
+        exec {
+            commandLine(
+                "bash",
+                "-c",
+                "scp build/dist/* raspberrypi:~/btle-scrapper",
+            )
+        }
+
+        exec {
+            commandLine(
+                "ssh",
+                "raspberrypi",
+                "sudo cp -r ~/btle-scrapper/* /opt/btle-scrapper"
+            )
+        }
+    }
 }

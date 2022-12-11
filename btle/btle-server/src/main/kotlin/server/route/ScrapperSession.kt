@@ -49,8 +49,6 @@ fun Route.scrapperSessionRoute(
                             log.error(ex) { "Unexpected error in scrapper session $sessionId" }
                         }
                     }
-                } finally {
-                    announcementService.freeAllBuckets(scrapper.sessionId)
                 }
             }
         }

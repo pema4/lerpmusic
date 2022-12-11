@@ -1,19 +1,24 @@
 package lerpmusic.btle.domain.note
 
-sealed interface NoteEvent {
+sealed interface MpeEvent {
     val note: Note
 
     data class NoteOn(
         override val note: Note,
         val velocity: Int,
-    ) : NoteEvent
+    ) : MpeEvent
 
     data class NoteOff(
         override val note: Note,
-    ) : NoteEvent
+    ) : MpeEvent
+
+    data class Pressure(
+        override val note: Note,
+        val pressure: Int,
+    ) : MpeEvent
 
     companion object {
-        fun fromRaw(channel: Int, pitch: Int, velocity: Int): NoteEvent? {
+        fun fromRaw(channel: Int, pitch: Int, velocity: Int): MpeEvent? {
             if (pitch !in 0..127) {
                 return null
             }

@@ -7,14 +7,16 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 sealed class ReceiverResponse {
+    abstract val bucket: Int
+
     @Serializable
     data class FoundPeripheral(
-        val bucket: Int,
+        override val bucket: Int,
         val rssi: Int,
     ) : ReceiverResponse()
 
     @Serializable
     data class LostPeripheral(
-        val bucket: Int,
+        override val bucket: Int,
     ) : ReceiverResponse()
 }

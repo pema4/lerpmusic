@@ -1,6 +1,7 @@
 package lerpmusic.btle.domain.session
 
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
@@ -26,6 +27,7 @@ class AnnouncementService(
                 CoroutineExceptionHandler { _, ex ->
                     log.error(ex) { "Can't send response in background" }
                 }
+    private val finalizerScope = CoroutineScope(finalizerJob)
 
     private val finalizerJobs = ConcurrentHashMap<String, Job>()
 
@@ -47,13 +49,16 @@ class AnnouncementService(
         }
 
         coroutineScope {
-            val finalizer = launch(finalizerJob) {
-                delay(1.seconds)
+            val finalizer = finalizerScope.launch {
+                delay(5.seconds)
 
                 launch {
                     val session = sessions[sessionId]
                     session?.mutex?.withLock {
                         session.buckets.remove(id)
+                        if (session.buckets.isEmpty()) {
+                            sessions.remove(sessionId)
+                        }
                     }
                 }
 
@@ -97,21 +102,6 @@ class AnnouncementService(
             buckets[id] = bucket
             log.info { "Buckets active: ${buckets.size}" }
             return bucket
-        }
-    }
-
-    suspend fun freeAllBuckets(sessionId: SessionId) {
-        val (_, buckets) = sessions.remove(sessionId) ?: return
-        val receivers = receiverRepository.getAll(sessionId)
-
-        coroutineScope {
-            for (bucket in buckets.values) {
-                for (receiver in receivers) {
-                    if (bucket in receiver.bucketRange) {
-                        launch { receiver.lostPeripheral(bucket) }
-                    }
-                }
-            }
         }
     }
 

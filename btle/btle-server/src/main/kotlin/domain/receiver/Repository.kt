@@ -22,13 +22,13 @@ class ReceiverRepository(
 
         val receiver = Receiver(sessionId, bucketsRange, wsSession)
         try {
-            activeReceivers.compute(sessionId) { _, devices ->
-                devices.orEmpty() + receiver
+            activeReceivers.compute(sessionId) { _, receivers ->
+                receivers.orEmpty() + receiver
             }
             block(receiver)
         } finally {
-            activeReceivers.compute(sessionId) { _, devices ->
-                (devices.orEmpty() - receiver)
+            activeReceivers.compute(sessionId) { _, receivers ->
+                (receivers.orEmpty() - receiver)
                     .ifEmpty { null }
             }
         }
@@ -36,5 +36,9 @@ class ReceiverRepository(
 
     fun getAll(sessionId: SessionId): Collection<Receiver> {
         return activeReceivers[sessionId].orEmpty()
+    }
+
+    fun endSession(sessionId: SessionId) {
+        val receivers = activeReceivers.remove(sessionId).orEmpty()
     }
 }

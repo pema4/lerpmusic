@@ -1,36 +1,27 @@
-package lerpmusic.consensus.device
+package lerpmusic.btle.receiver
 
-import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.utils.io.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
-import lerpmusic.consensus.domain.note.NoteEvent
+import lerpmusic.btle.domain.note.MpeEvent
 import kotlin.time.Duration.Companion.seconds
 
+@FlowPreview
 @OptIn(ExperimentalCoroutinesApi::class)
-class ConsensusScript(
+class ReceiverScript(
     private val max: Max,
-    private val httpClientEngineFactory: HttpClientEngineFactory<*>,
 ) {
-    private val noteEvents: ReceiveChannel<NoteEvent?> =
-        max.receive3AsChannel("midiIn") transform@{ a, b, c ->
-            NoteEvent.fromRaw(
-                channel = a as? Int ?: return@transform null,
-                pitch = b as? Int ?: return@transform null,
-                velocity = c as? Int ?: return@transform null,
-            )
-        }
-
     private val serverHost: Flow<String?> =
         max.receiveAsState("serverHost", initial = null) {
             it?.toString()
@@ -41,41 +32,38 @@ class ConsensusScript(
             it?.toString()
         }
 
-    private val sessionPin: Flow<String?> =
-        max.receiveAsState("sessionPin", initial = null) {
-            it?.toString()
+    private val bucketStart: Flow<Int?> =
+        max.receiveAsState("bucketStart", initial = null) {
+            it?.toString()?.toIntOrNull()
+        }
+
+    private val bucketLength: Flow<Int?> =
+        max.receiveAsState("bucketLength", initial = null) {
+            it?.toString()?.toIntOrNull()
         }
 
     suspend fun start(): Unit = coroutineScope {
         launchEventLogging()
 
-        fun play(ev: NoteEvent) {
-            launch {
-                when (ev) {
-                    is NoteEvent.NoteOn ->
-                        max.outlet("midiOut", ev.note.channel, ev.note.pitch, ev.velocity)
-
-                    is NoteEvent.NoteOff ->
-                        max.outlet("midiOut", ev.note.channel, ev.note.pitch, 0)
-                }
-            }
-        }
-
         val configurations =
-            combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
-                ConsensusClient(
+            combine(
+                serverHost,
+                sessionId,
+                bucketStart,
+                bucketLength
+            ) { serverHost, sessionId, bucketStart, bucketLength ->
+                ReceiverClient(
                     serverHost = serverHost ?: return@combine null,
                     sessionId = sessionId ?: return@combine null,
-                    sessionPin = sessionPin ?: return@combine null,
-                    noteEvents = noteEvents,
-                    play = ::play,
-                    httpClientEngineFactory = httpClientEngineFactory,
+                    bucketStart = bucketStart ?: return@combine null,
+                    bucketLength = bucketLength?: return@combine null,
                     max = max,
                 )
             }
 
         configurations
             .filterNotNull()
+            .debounce(0.2.seconds)
             .mapLatest { client ->
                 while (true) {
                     try {
@@ -85,11 +73,12 @@ class ConsensusScript(
                         }
                     } catch (ex: CancellationException) {
                         max.outlet("status", "stopped")
-                        throw ex
+                        ex.printStackTrace()
+                        delay(1.seconds)
                     } catch (ex: Throwable) {
                         max.outlet("status", "stopped")
                         ex.printStackTrace()
-                        delay(2.seconds)
+                        delay(1.seconds)
                     }
                 }
             }
@@ -107,11 +96,15 @@ class ConsensusScript(
             .onEach { max.post("Got sessionId of '$it'") }
             .launchIn(this)
 
-        sessionPin
-            .onEach { max.post("Got sessionPin of '$it'") }
+        bucketStart
+            .onEach { max.post("Got bucketStart of '$it'") }
+            .launchIn(this)
+
+        bucketLength
+            .onEach { max.post("Got bucketLength of '$it'") }
             .launchIn(this)
     }
 }
 
-fun ConsensusScript.launchIn(scope: CoroutineScope) =
+fun ReceiverScript.launchIn(scope: CoroutineScope) =
     scope.launch { start() }

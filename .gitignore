@@ -41,3 +41,5 @@ gradle-app.setting
 
 **/target
 **/*.dylib
+
+node_modules

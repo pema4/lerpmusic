@@ -18,15 +18,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
 import lerpmusic.btle.domain.scrapper.ScrapperRequest
+import lerpmusic.btle.domain.session.SessionId
 import mu.KotlinLogging
 import kotlin.time.Duration.Companion.seconds
 
 class Scrapper(
-    private val noble: Noble,
-    private val httpClient: HttpClient,
+    private val sessionId: SessionId,
     private val serverHost: String,
+    private val httpClient: HttpClient,
+    private val noble: Noble,
 ) {
-    private val log = KotlinLogging.logger {}
+    private val log = KotlinLogging.logger("Scrapper")
 
     fun launchIn(coroutineScope: CoroutineScope) {
         coroutineScope.launch {
@@ -37,21 +39,22 @@ class Scrapper(
     private suspend fun start(): Unit = coroutineScope {
         val foundPeripherals = noble
             .discover()
-            .filter { it.id != "8cad1c4d524a63bac1e652ec0272f6d0" }
             .shareIn(this, SharingStarted.Eagerly)
 
         launch {
             foundPeripherals
-                .collect { log.info { "Found $it" } }
+                .filter { it.addressType != "random" }
+                .collect { log.debug { "Found device $it" } }
         }
 
         while (true) {
             try {
                 openWebSocketSession {
+                    log.info { "Opened websocket connection" }
                     foundPeripherals
                         .map {
                             ScrapperRequest.Announcement(
-                                id = it.id,
+                                id = it.address.ifEmpty { null } ?: it.id,
                                 rssi = it.rssi,
                             )
                         }
@@ -78,7 +81,7 @@ class Scrapper(
                     URLProtocol.WSS
                 }
                 host = serverHost
-                path("btle", "10", "scrapper")
+                path("btle", sessionId.value, "scrapper")
             }
             .buildString()
 

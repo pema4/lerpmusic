@@ -1,4 +1,4 @@
-package lerpmusic.consensus.device
+package lerpmusic.btle.receiver
 
 import kotlinx.coroutines.await
 import kotlin.js.Promise

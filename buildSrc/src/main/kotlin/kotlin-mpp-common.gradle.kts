@@ -28,6 +28,7 @@ dependencies {
         commonMainImplementation("org.jetbrains.kotlinx:kotlinx-serialization-bom:1.4.1")
         commonMainImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.6.4")
         commonMainImplementation("io.github.microutils:kotlin-logging:3.0.2")
+        commonMainImplementation("org.jetbrains.kotlinx:kotlinx-cli:0.3.5")
         commonTestImplementation("io.kotest:kotest-bom:5.5.4")
     }
 

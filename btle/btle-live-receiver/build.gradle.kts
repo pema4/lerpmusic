@@ -11,7 +11,7 @@ kotlin {
     sourceSets {
         val commonMain by getting {
             dependencies {
-                implementation(project(":consensus:consensus-domain"))
+                implementation(project(":btle:btle-domain"))
                 implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
                 implementation("io.ktor:ktor-client-core")
                 implementation("io.ktor:ktor-client-websockets")
@@ -48,13 +48,6 @@ val prepareDistribution = task<Sync>("prepareDistribution") {
     from(buildDir.dir("compileSync/main/productionExecutable/kotlin")) {
         include("lerpmusic-btle-live-receiver.js")
     }
-    rename {
-        if (it == "lerpmusic-btle-live-receiver.js") {
-            "btle-receiver.js"
-        } else {
-            it
-        }
-    }
     into(buildDir.dir("dist"))
 }
 
@@ -71,13 +64,6 @@ val prepareDistribution = task<Copy>("prepareLiveDevice") {
     from(buildDir.dir("tmp/jsPublicPackageJson"))
     from(buildDir.dir("compileSync/main/productionExecutable/kotlin")) {
         include("lerpmusic-btle-live-receiver.js")
-    }
-    rename {
-        if (it == "lerpmusic-btle-live-receiver.js") {
-            "btle-receiver.js"
-        } else {
-            it
-        }
     }
     into(projectDir)
 }
