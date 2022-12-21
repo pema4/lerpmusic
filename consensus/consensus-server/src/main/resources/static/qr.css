@@ -17,3 +17,37 @@
     /*horiz-align: center;*/
     /*object-fit: contain;*/
 }
+
+@media (prefers-color-scheme: light) {
+    body {
+        background: #FFF;
+        color: #222;
+    }
+
+    #qr-img {
+        -webkit-filter: invert(12.5%);
+        filter: invert(12.5%);
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    body {
+        background: #FFF;
+        color: #222;
+    }
+
+    #qr-img {
+        -webkit-filter: invert(12.5%);
+        filter: invert(12.5%);
+    }
+
+    /*body {*/
+    /*    background: #222;*/
+    /*    color: #FFF;*/
+    /*}*/
+
+    /*#qr-img {*/
+    /*    -webkit-filter: invert(100%);*/
+    /*    filter: invert(100%);*/
+    /*}*/
+}

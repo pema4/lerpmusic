@@ -9,7 +9,7 @@ plugins {
 dependencies {
     constraints {
         implementation(kotlin("stdlib-jdk8"))
-        implementation("io.ktor:ktor-bom:2.1.3")
+        implementation("io.ktor:ktor-bom:2.2.1")
         implementation("org.jetbrains.kotlinx:kotlinx-serialization-bom:1.4.1")
         implementation("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.6.4")
         implementation("io.github.microutils:kotlin-logging:3.0.2")

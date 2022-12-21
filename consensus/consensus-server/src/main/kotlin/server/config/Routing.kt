@@ -42,6 +42,11 @@ fun Application.configureRouting() {
             call.respondRedirect("/consensus/$sessionId")
         }
 
+        get("/c/{sessionId}/qr") {
+            val sessionId = call.parameters["sessionId"]!!
+            call.respondRedirect("/consensus/$sessionId/qr")
+        }
+
         route("/consensus/{sessionId}") {
             deviceSessionRoute(
                 deviceRepository = deviceRepository,

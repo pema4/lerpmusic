@@ -24,7 +24,7 @@ kotlin {
 
 dependencies {
     constraints {
-        commonMainImplementation("io.ktor:ktor-bom:2.1.3")
+        commonMainImplementation("io.ktor:ktor-bom:2.2.1")
         commonMainImplementation("org.jetbrains.kotlinx:kotlinx-serialization-bom:1.4.1")
         commonMainImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-bom:1.6.4")
         commonMainImplementation("io.github.microutils:kotlin-logging:3.0.2")

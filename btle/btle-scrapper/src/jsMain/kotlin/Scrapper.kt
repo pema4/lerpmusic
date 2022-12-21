@@ -13,7 +13,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.launch
@@ -37,20 +36,20 @@ class Scrapper(
     }
 
     private suspend fun start(): Unit = coroutineScope {
-        val foundPeripherals = noble
-            .discover()
-            .shareIn(this, SharingStarted.Eagerly)
-
-        launch {
-            foundPeripherals
-                .filter { it.addressType != "random" }
-                .collect { log.debug { "Found device $it" } }
-        }
-
         while (true) {
             try {
                 openWebSocketSession {
                     log.info { "Opened websocket connection" }
+
+                    val foundPeripherals = noble
+                        .discover()
+                        .shareIn(this, SharingStarted.Eagerly)
+
+                    launch {
+                        foundPeripherals
+                            .collect { log.debug { "Found device $it" } }
+                    }
+
                     foundPeripherals
                         .map {
                             ScrapperRequest.Announcement(

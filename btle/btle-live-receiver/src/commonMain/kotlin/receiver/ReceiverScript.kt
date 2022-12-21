@@ -17,8 +17,7 @@ import kotlinx.coroutines.launch
 import lerpmusic.btle.domain.note.MpeEvent
 import kotlin.time.Duration.Companion.seconds
 
-@FlowPreview
-@OptIn(ExperimentalCoroutinesApi::class)
+@OptIn(FlowPreview::class, ExperimentalCoroutinesApi::class)
 class ReceiverScript(
     private val max: Max,
 ) {

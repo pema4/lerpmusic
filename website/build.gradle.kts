@@ -1,6 +1,6 @@
 plugins {
     lerpmusic.`kotlin-jvm-application`
-    id("io.ktor.plugin") version "2.1.3"
+    id("io.ktor.plugin") version "2.2.1"
 }
 
 dependencies {
