@@ -1,0 +1,23 @@
+product: 
+  type: lib
+  platforms: [jvm]
+    
+dependencies:
+    - ../consensus-shared
+    - $libs.kotlin.logging
+    - $libs.kotlinx.coroutines.core
+    - $libs.kotlinx.coroutines.slf4j
+    - $libs.ktor.server.websockets
+    - $libs.ktor.serialization.kotlinx.json
+    - $libs.ktor.server.call.id
+    - $libs.zxing.core
+    - $libs.zxing.javase
+
+test-dependencies:
+    - ../consensus-shared
+    - $libs.ktor.server.tests
+    - $libs.kotest.assertions.core
+    - $libs.kotest.assertions.ktor
+
+test-settings:
+  junit: junit-5
