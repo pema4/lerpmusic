@@ -29,22 +29,23 @@ class ConsensusScript(
 
     private val serverHost: Flow<String> =
         max.inlet("serverHost")
+            .onEach { max.post("Got serverHost of '$it'") }
             .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
             .mapNotNull { it?.toString() }
 
     private val sessionId: Flow<String> =
         max.inlet("sessionId")
+            .onEach { max.post("Got sessionId of '$it'") }
             .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
             .mapNotNull { it?.toString() }
 
     private val sessionPin: Flow<String> =
         max.inlet("sessionPin")
+            .onEach { max.post("Got sessionPin of '$it'") }
             .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
             .mapNotNull { it?.toString() }
 
     suspend fun start(): Nothing = coroutineScope {
-        launchEventLogging()
-
         fun play(ev: NoteEvent) {
             launch {
                 when (ev) {
@@ -94,20 +95,6 @@ class ConsensusScript(
         max.outlet("status", "initialized")
 
         awaitCancellation()
-    }
-
-    private fun CoroutineScope.launchEventLogging() {
-        serverHost
-            .onEach { max.post("Got serverHost of '$it'") }
-            .launchIn(this)
-
-        sessionId
-            .onEach { max.post("Got sessionId of '$it'") }
-            .launchIn(this)
-
-        sessionPin
-            .onEach { max.post("Got sessionPin of '$it'") }
-            .launchIn(this)
     }
 }
 
