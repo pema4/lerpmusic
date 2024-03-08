@@ -97,6 +97,3 @@ class ConsensusScript(
         awaitCancellation()
     }
 }
-
-fun ConsensusScript.launchIn(scope: CoroutineScope) =
-    scope.launch { start() }
