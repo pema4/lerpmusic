@@ -1,0 +1,5 @@
+kotlin {
+    js {
+        nodejs()
+    }
+}
