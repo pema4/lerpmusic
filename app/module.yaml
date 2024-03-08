@@ -30,7 +30,7 @@ settings:
     languageVersion: 2.0
     serialization: json
   jvm:
-    target: 21
+    target: 17
 
 test-settings:
   junit: junit-5

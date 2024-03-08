@@ -2,18 +2,10 @@ package lerpmusic.consensus.device
 
 import io.ktor.client.engine.HttpClientEngineFactory
 import io.ktor.utils.io.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.coroutineScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.mapLatest
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.NoteEvent
 import kotlin.time.Duration.Companion.seconds
 
@@ -21,32 +13,36 @@ import kotlin.time.Duration.Companion.seconds
 class ConsensusScript(
     private val max: Max,
     private val httpClientEngineFactory: HttpClientEngineFactory<*>,
+    private val coroutineScope: CoroutineScope,
 ) {
     private val noteEvents: ReceiveChannel<NoteEvent?> =
-        max.receive3AsChannel("midiIn") transform@{ a, b, c ->
-            NoteEvent.fromRaw(
-                channel = a as? Int ?: return@transform null,
-                pitch = b as? Int ?: return@transform null,
-                velocity = c as? Int ?: return@transform null,
-            )
-        }
+        max.inlet3("midiIn")
+            .mapNotNull { (a, b, c) ->
+                NoteEvent.fromRaw(
+                    channel = a as? Int ?: return@mapNotNull null,
+                    pitch = b as? Int ?: return@mapNotNull null,
+                    velocity = c as? Int ?: return@mapNotNull null,
+                )
+            }
+            .buffer(Channel.UNLIMITED)
+            .produceIn(coroutineScope)
 
-    private val serverHost: Flow<String?> =
-        max.receiveAsState("serverHost", initial = null) {
-            it?.toString()
-        }
+    private val serverHost: Flow<String> =
+        max.inlet("serverHost")
+            .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
+            .mapNotNull { it?.toString() }
 
-    private val sessionId: Flow<String?> =
-        max.receiveAsState("sessionId", initial = null) {
-            it?.toString()
-        }
+    private val sessionId: Flow<String> =
+        max.inlet("sessionId")
+            .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
+            .mapNotNull { it?.toString() }
 
-    private val sessionPin: Flow<String?> =
-        max.receiveAsState("sessionPin", initial = null) {
-            it?.toString()
-        }
+    private val sessionPin: Flow<String> =
+        max.inlet("sessionPin")
+            .stateIn(coroutineScope, SharingStarted.Eagerly, initialValue = null)
+            .mapNotNull { it?.toString() }
 
-    suspend fun start(): Unit = coroutineScope {
+    suspend fun start(): Nothing = coroutineScope {
         launchEventLogging()
 
         fun play(ev: NoteEvent) {
@@ -64,9 +60,9 @@ class ConsensusScript(
         val configurations =
             combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
                 ConsensusClient(
-                    serverHost = serverHost ?: return@combine null,
-                    sessionId = sessionId ?: return@combine null,
-                    sessionPin = sessionPin ?: return@combine null,
+                    serverHost = serverHost,
+                    sessionId = sessionId,
+                    sessionPin = sessionPin,
                     noteEvents = noteEvents,
                     play = ::play,
                     httpClientEngineFactory = httpClientEngineFactory,
@@ -96,6 +92,8 @@ class ConsensusScript(
             .launchIn(this)
 
         max.outlet("status", "initialized")
+
+        awaitCancellation()
     }
 
     private fun CoroutineScope.launchEventLogging() {

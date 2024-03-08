@@ -1,14 +1,17 @@
 package lerpmusic.consensus.device
 
 import io.ktor.client.engine.js.Js
-import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.coroutineScope
 
-fun main() {
-    val script = ConsensusScript(
-        max = Max,
-        httpClientEngineFactory = Js,
-    )
-    script.launchIn(MainScope())
+suspend fun main() {
+    coroutineScope {
+        val script = ConsensusScript(
+            max = Max,
+            httpClientEngineFactory = Js,
+            coroutineScope = this
+        )
+        script.start()
+    }
 //    MainScope().launch {
 //        client.get("http://localhost:8081/test")
 //    }

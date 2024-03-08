@@ -19,8 +19,8 @@ kotlin {
 val prepareDistribution = task<Sync>("prepareDistribution") {
     group = "deployment"
     dependsOn(
-        ":consensus:consensus-live-device:jsPublicPackageJson",
-        ":consensus:consensus-live-device:jsProductionExecutableCompileSync",
+        "${project.path}:jsPublicPackageJson",
+        "${project.path}:jsProductionExecutableCompileSync",
     )
 
     val projectDir = project.layout.projectDirectory
@@ -28,11 +28,11 @@ val prepareDistribution = task<Sync>("prepareDistribution") {
 
     from(projectDir.file("consensus.amxd"))
     from(buildDir.dir("tmp/jsPublicPackageJson"))
-    from(buildDir.dir("compileSync/main/productionExecutable/kotlin")) {
-        include("lerpmusic-consensus-live-device.js")
+    from(buildDir.dir("compileSync/js/main/productionExecutable/kotlin")) {
+        include("lerpmusic-site-consensus-live-device.js")
     }
     rename {
-        if (it == "lerpmusic-consensus-live-device.js") {
+        if (it == "lerpmusic-site-consensus-live-device.js") {
             "consensus.js"
         } else {
             it
