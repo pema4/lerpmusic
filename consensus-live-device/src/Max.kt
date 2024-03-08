@@ -3,6 +3,7 @@ package lerpmusic.consensus.device
 import kotlinx.coroutines.await
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.ReceiveChannel
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.*
 import kotlin.js.Promise
 
@@ -39,6 +40,7 @@ suspend fun Max.outlet(vararg values: Any?): Any? =
 fun Max.inlet(selector: String): Flow<Any?> =
     callbackFlow {
         addHandler(selector) { a -> trySend(a) }
+        awaitClose()
     }
 
 data class Message2(
@@ -49,6 +51,7 @@ data class Message2(
 fun Max.inlet2(selector: String): Flow<Message2> =
     callbackFlow {
         addHandler2(selector) { a, b -> trySend(Message2(a, b)) }
+        awaitClose()
     }
 
 data class Message3(
@@ -60,4 +63,5 @@ data class Message3(
 fun Max.inlet3(selector: String): Flow<Message3> =
     callbackFlow {
         addHandler3(selector) { a, b, c -> trySend(Message3(a, b, c)) }
+        awaitClose()
     }
