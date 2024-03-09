@@ -2,7 +2,7 @@ product: jvm/app
 
 dependencies:
   - ../consensus-shared
-  - org.jetbrains.kotlinx:kotlinx-coroutines-slf4j
+  - $libs.kotlinx.coroutines.slf4j
   - $libs.kotlin.logging
   - $libs.logback.classic:
       scope: runtime-only

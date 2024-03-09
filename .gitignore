@@ -37,6 +37,7 @@ gradle-app.setting
 !gradle-wrapper.properties
 
 **/.idea/
+**/.fleet/
 *.iml
 
 **/target

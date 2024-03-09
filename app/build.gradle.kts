@@ -4,7 +4,7 @@ plugins {
 
 ktor {
     fatJar {
-        archiveFileName.set("lerpmusic-website.jar")
+        archiveFileName = "lerpmusic-website.jar"
     }
 }
 
