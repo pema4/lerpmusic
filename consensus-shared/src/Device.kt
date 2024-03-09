@@ -1,5 +1,7 @@
 package lerpmusic.consensus
 
+import kotlinx.serialization.Polymorphic
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -8,11 +10,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed class DeviceRequest {
     @Serializable
+    @SerialName("AskNote")
     data class AskNote(
         val note: Note,
     ) : DeviceRequest()
 
     @Serializable
+    @SerialName("CancelNote")
     data class CancelNote(
         val note: Note,
     ) : DeviceRequest()
@@ -24,6 +28,7 @@ sealed class DeviceRequest {
 @Serializable
 sealed class DeviceResponse {
     @Serializable
+    @SerialName("PlayNote")
     data class PlayNote(
         val note: Note
     ) : DeviceResponse()
