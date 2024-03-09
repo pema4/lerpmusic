@@ -4,7 +4,7 @@ plugins {
 
 ktor {
     fatJar {
-        archiveFileName = "lerpmusic-website.jar"
+        archiveFileName = "lerpmusic.jar"
     }
 }
 
@@ -16,8 +16,8 @@ val deployWebsite = task<Task>("deployWebsite") {
         exec {
             commandLine(
                 "scp",
-                "build/libs/lerpmusic-website.jar",
-                "lerpmusic:~/lerpmusic/lerpmusic-website.jar"
+                "build/libs/lerpmusic.jar",
+                "lerpmusic:lerpmusic.jar.override"
             )
         }
 
@@ -25,7 +25,7 @@ val deployWebsite = task<Task>("deployWebsite") {
             commandLine(
                 "ssh",
                 "lerpmusic",
-                "~/lerpmusic/run.sh"
+                "mv ~/lerpmusic.jar.override ~/lerpmusic.jar"
             )
         }
     }
