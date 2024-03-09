@@ -14,7 +14,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.routing.Route
 import io.ktor.server.routing.get
-import io.ktor.server.websocket.webSocket
+import io.ktor.server.websocket.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
@@ -26,6 +26,8 @@ import lerpmusic.website.consensus.listener.processRequests
 import mu.KotlinLogging
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 private val log = KotlinLogging.logger {}
 
@@ -106,6 +108,6 @@ fun Route.listenerSessionRoute(
 fun generateQRCodeImage(barcodeText: String): BufferedImage {
     val barcodeWriter = QRCodeWriter()
     val bitMatrix = barcodeWriter.encode(barcodeText, BarcodeFormat.QR_CODE, 512, 512)
-    val config = MatrixToImageConfig(0xFF000000.toInt(), 0x00000000.toInt())
+    val config = MatrixToImageConfig(0xFF000000u.toInt(), 0x00000000u.toInt())
     return MatrixToImageWriter.toBufferedImage(bitMatrix, config)
 }

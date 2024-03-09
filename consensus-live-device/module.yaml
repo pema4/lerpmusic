@@ -6,6 +6,7 @@ dependencies:
   - ../consensus-shared
   - $libs.ktor.client.core
   - $libs.kotlinx.coroutines.core
+  - $libs.ktor.client.js
   - $libs.ktor.client.websockets
   - $libs.ktor.client.content.negotiation
   - $libs.ktor.serialization.kotlinx.json

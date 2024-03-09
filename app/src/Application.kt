@@ -9,7 +9,6 @@ import io.ktor.server.plugins.callid.CallId
 import io.ktor.server.plugins.callid.generate
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.plugins.partialcontent.*
-import lerpmusic.website.config.configureHttpsRedirect
 import lerpmusic.website.config.configureLogging
 import lerpmusic.website.config.configureRouting
 import lerpmusic.website.config.configureWebSockets
@@ -28,7 +27,7 @@ fun Application.appModule() {
         generate(10, "abcdef0123456789")
     }
 
-    configureHttpsRedirect()
+//    configureHttpsRedirect()
     configureLogging()
     configureWebSockets()
     configureRouting()

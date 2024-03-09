@@ -12,6 +12,8 @@ import lerpmusic.website.consensus.device.Device
 import lerpmusic.website.consensus.device.DeviceRepository
 import mu.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 
 fun Route.deviceSessionRoute(

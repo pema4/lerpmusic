@@ -25,14 +25,6 @@ val deployWebsite = task<Task>("deployWebsite") {
             commandLine(
                 "ssh",
                 "lerpmusic",
-                "sudo ~/lerpmusic/run-sudo.sh"
-            )
-        }
-
-        exec {
-            commandLine(
-                "ssh",
-                "lerpmusic",
                 "~/lerpmusic/run.sh"
             )
         }

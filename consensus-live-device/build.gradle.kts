@@ -7,7 +7,6 @@ kotlin {
     sourceSets {
         val jsMain by getting {
             dependencies {
-                implementation(libs.ktor.client.js)
                 implementation(npm("abort-controller", "3.0.0"))
                 implementation(npm("node-fetch", "2.6.1"))
                 implementation(npm("ws", "8.10.0"))
