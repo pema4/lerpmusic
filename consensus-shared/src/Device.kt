@@ -1,6 +1,5 @@
 package lerpmusic.consensus
 
-import kotlinx.serialization.Polymorphic
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
