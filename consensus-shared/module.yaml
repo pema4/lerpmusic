@@ -1,8 +1,12 @@
 product:
   type: lib
-  platforms: [jvm, js]
+  platforms: [ jvm, js ]
+
+dependencies:
+  - $compose.runtime
 
 settings:
   kotlin:
-    languageVersion: 2.0
     serialization: json
+  compose:
+    enabled: true

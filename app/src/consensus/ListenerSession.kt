@@ -23,6 +23,7 @@ import kotlinx.coroutines.withContext
 import lerpmusic.consensus.SessionId
 import lerpmusic.website.consensus.listener.ListenerRepository
 import lerpmusic.website.consensus.listener.processRequests
+import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
@@ -78,7 +79,7 @@ fun Route.listenerSessionRoute(
         withCallIdInMDC(call.callId) {
             listenerRepository.getAndUseListener(
                 sessionId = sessionId,
-                wsSession = this,
+                wsSession = this@webSocket,
             ) { listener ->
                 if (listener == null) {
                     return@getAndUseListener

@@ -21,16 +21,13 @@ dependencies:
   - $libs.zxing.javase
 
 test-dependencies:
-  - $libs.ktor.server.tests
+  - $libs.ktor.server.test.host
   - $libs.kotest.assertions.ktor
   - $libs.kotest.assertions.core
 
 settings:
   kotlin:
-    languageVersion: 2.0
     serialization: json
-  jvm:
-    target: 17
 
 test-settings:
   junit: junit-5

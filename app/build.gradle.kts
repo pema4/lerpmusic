@@ -8,7 +8,7 @@ ktor {
     }
 }
 
-val deployWebsite = task<Task>("deployWebsite") {
+task("deployWebsite") {
     dependsOn(":app:buildFatJar")
     group = "deployment"
 

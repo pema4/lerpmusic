@@ -1,4 +1,4 @@
-package lerpmusic.website.portfolio
+package lerpmusic.website.masterportfolio
 
 import kotlinx.html.FlowContent
 import kotlinx.html.p

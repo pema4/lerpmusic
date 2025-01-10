@@ -5,17 +5,16 @@ kotlin {
     }
 
     sourceSets {
-        val jsMain by getting {
-            dependencies {
-                implementation(npm("abort-controller", "3.0.0"))
-                implementation(npm("node-fetch", "2.6.1"))
-                implementation(npm("ws", "8.10.0"))
-            }
+        jsMain.dependencies {
+            implementation(npm("abort-controller", "3.0.0"))
+            implementation(npm("node-fetch", "2.6.1"))
+            implementation(npm("ws", "8.10.0"))
+            compileOnly(npm("max-api", "2.0.0"))
         }
     }
 }
 
-val prepareDistribution = task<Sync>("prepareDistribution") {
+task<Sync>("prepareDistribution") {
     group = "deployment"
     dependsOn(
         "${project.path}:jsPublicPackageJson",

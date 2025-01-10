@@ -1,12 +1,12 @@
 package lerpmusic.website.config
 
 import io.ktor.server.application.*
-import io.ktor.server.html.*
 import io.ktor.server.http.content.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import lerpmusic.website.consensus.consensusRoutes
-import lerpmusic.website.portfolio.masterPortfolioRoutes
+import lerpmusic.website.masterportfolio.masterPortfolioRoutes
+import lerpmusic.website.portfolio.portfolioRoutes
 import mu.KotlinLogging.logger
 
 fun Application.configureRouting() {
@@ -14,6 +14,7 @@ fun Application.configureRouting() {
         staticResources("/static", "static")
         staticResources("/rnbo", "rnbo")
 
+        portfolioRoutes()
         masterPortfolioRoutes()
         consensusRoutes()
 
