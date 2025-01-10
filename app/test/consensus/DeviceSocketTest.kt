@@ -8,7 +8,7 @@ import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 
 class DeviceSocketTest {
 

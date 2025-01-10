@@ -1,15 +1,37 @@
+plugins {
+    kotlin("multiplatform")
+    kotlin("plugin.serialization")
+    kotlin("plugin.compose")
+}
+
 kotlin {
     js {
         nodejs()
         binaries.executable()
     }
 
-    sourceSets {
-        jsMain.dependencies {
+    sourceSets.jsMain {
+        kotlin.srcDir("src")
+
+        dependencies {
+            implementation(project(":consensus-shared"))
+
+            implementation(libs.ktor.client.core)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.js)
+            implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.molecule.runtime)
+            implementation(libs.arrow.suspendapp)
+            implementation(libs.kotlinx.io.core)
+            implementation(libs.kotlin.logging)
+
             implementation(npm("abort-controller", "3.0.0"))
             implementation(npm("node-fetch", "2.6.1"))
             implementation(npm("ws", "8.10.0"))
-            compileOnly(npm("max-api", "2.0.0"))
+            api(npm("max-api", "2.0.0"))
         }
     }
 }
