@@ -1,8 +1,7 @@
 plugins {
     // Support convention plugins written in Kotlin. Convention plugins are build scripts in 'src/main' that automatically become available as plugins in the main build.
     `kotlin-dsl`
-//    kotlin("jvm") version embeddedKotlinVersion
-    kotlin("jvm") version "2.1.0"
+    kotlin("jvm") version embeddedKotlinVersion
 }
 
 repositories {
