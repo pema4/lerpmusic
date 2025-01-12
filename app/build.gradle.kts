@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm")
-    alias(libs.plugins.ktor.plugin)
+    application
+    alias(libs.plugins.ktor)
 }
 
 kotlin {
@@ -47,6 +48,10 @@ ktor {
     }
 }
 
+application {
+    mainClass.set("lerpmusic.website.MainKt")
+}
+
 tasks.test {
     useJUnitPlatform()
 }
@@ -71,5 +76,11 @@ task("deployWebsite") {
                 "mv ~/lerpmusic.jar.override ~/lerpmusic.jar"
             )
         }
+    }
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
     }
 }
