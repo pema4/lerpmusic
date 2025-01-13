@@ -4,6 +4,9 @@ plugins {
     alias(libs.plugins.ktor)
 }
 
+group = "ru.lerpmusic"
+version = "1.0.0-SNAPSHOT"
+
 kotlin {
     sourceSets {
         main {
@@ -20,7 +23,9 @@ kotlin {
 dependencies {
     implementation(project(":consensus-shared"))
 
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.slf4j)
+    runtimeOnly(libs.kotlinx.coroutines.debug)
     implementation(libs.kotlin.logging)
     runtimeOnly(libs.logback.classic)
     implementation(libs.ktor.serialization.kotlinx.json)
@@ -50,7 +55,8 @@ ktor {
 }
 
 application {
-    mainClass.set("lerpmusic.website.MainKt")
+    mainClass = "lerpmusic.website.MainKt"
+    applicationDefaultJvmArgs = listOf("kotlinx.coroutines.debug=on")
 }
 
 tasks.test {
@@ -66,7 +72,7 @@ task("deployWebsite") {
             commandLine(
                 "scp",
                 "build/libs/lerpmusic.jar",
-                "lerpmusic:lerpmusic.jar.override"
+                "lerpmusic:lerpmusic/lerpmusic.jar.override"
             )
         }
 
@@ -74,7 +80,7 @@ task("deployWebsite") {
             commandLine(
                 "ssh",
                 "lerpmusic",
-                "mv ~/lerpmusic.jar.override ~/lerpmusic.jar"
+                "mv ~/lerpmusic/lerpmusic.jar.override ~/lerpmusic/lerpmusic.jar"
             )
         }
     }

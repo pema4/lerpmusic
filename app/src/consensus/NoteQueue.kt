@@ -61,7 +61,7 @@ class NoteQueue {
 
         return DequeueResult(
             note = oldestNote?.note ?: return null,
-            device = oldestNote?.device ?: return null,
+            device = oldestNote.device,
             remainingNotes = newQueue?.size ?: 0,
         )
     }

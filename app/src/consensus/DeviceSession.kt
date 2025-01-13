@@ -3,8 +3,12 @@ package lerpmusic.website.consensus
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.withContext
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
@@ -39,7 +43,8 @@ fun Route.deviceSessionRoute(
                         is CancellationException,
                         is ClosedSendChannelException,
                         is ClosedReceiveChannelException -> {
-                            log.info { "Device session $sessionId is stopped" }
+                            currentCoroutineContext().ensureActive()
+                            log.info { "Device session $sessionId is stopped, cause: ${this@webSocket.closeReason}" }
                             throw ex
                         }
 
@@ -48,7 +53,9 @@ fun Route.deviceSessionRoute(
                         }
                     }
                 } finally {
-                    consensusService.cancelAllNotes(device)
+                    withContext(NonCancellable) {
+                        consensusService.cancelAllNotes(device)
+                    }
                 }
             }
         }

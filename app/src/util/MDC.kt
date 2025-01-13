@@ -6,6 +6,6 @@ import kotlinx.coroutines.withContext
 import org.slf4j.MDC
 
 suspend fun <T> withCallIdInMDC(callId: String?, block: suspend CoroutineScope.() -> T) {
-    val contextMap = MDC.getCopyOfContextMap().apply { put("call-id", callId) }
-    withContext(MDCContext(contextMap), block)
+    MDC.put("call-id", callId)
+    withContext(MDCContext(), block)
 }

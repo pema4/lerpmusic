@@ -3,17 +3,17 @@ package lerpmusic.website.consensus
 import io.kotest.matchers.shouldBe
 import io.ktor.client.plugins.websocket.*
 import io.ktor.serialization.kotlinx.*
-import io.ktor.server.testing.*
 import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
+import lerpmusic.website.testLerpMusicApplication
 import org.junit.jupiter.api.Test
 
 class DeviceSocketTest {
 
     @Test
-    fun `can connect`() = testApplication {
+    fun `can connect`() = testLerpMusicApplication {
         val client = createClient {
             install(WebSockets)
         }
@@ -22,7 +22,7 @@ class DeviceSocketTest {
     }
 
     @Test
-    fun `can request note`() = testApplication {
+    fun `can request note`() = testLerpMusicApplication {
         val client = createClient {
             install(WebSockets) {
                 contentConverter = KotlinxWebsocketSerializationConverter(Json)
@@ -37,7 +37,7 @@ class DeviceSocketTest {
     }
 
     @Test
-    fun `can cancel note`() = testApplication {
+    fun `can cancel note`() = testLerpMusicApplication {
         val client = createClient {
             install(WebSockets) {
                 contentConverter = KotlinxWebsocketSerializationConverter(Json)
