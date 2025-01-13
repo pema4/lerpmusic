@@ -2,23 +2,17 @@ package lerpmusic.consensus.device
 
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
-import io.ktor.client.request.*
-import io.ktor.client.statement.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.flow.produceIn
-import kotlinx.coroutines.isActive
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
 import lerpmusic.consensus.NoteEvent
-import kotlin.coroutines.cancellation.CancellationException
-import kotlin.coroutines.coroutineContext
 import kotlin.time.Duration.Companion.seconds
 
 class ConsensusClient(
@@ -41,78 +35,53 @@ class ConsensusClient(
 
     private val client = HttpClient {
         install(WebSockets) {
-            maxFrameSize = Long.MAX_VALUE
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
         }
     }
 
     suspend fun run() {
-        while (coroutineContext.isActive) {
-            try {
-                max.outlet("status", "running")
-                openServerSession()
-            } catch (ex: CancellationException) {
+        flow<Nothing> { openServerSession() }
+            .catch { ex ->
                 max.outlet("status", "stopped")
-                Max.post("Disconnected from the server")
-                throw ex
-            } catch (ex: Throwable) {
-                max.outlet("status", "stopped")
+                max.post("Got exception $ex")
                 ex.printStackTrace()
-                Max.post("Got exception $ex")
-                delay(2.seconds)
+                throw ex
             }
-        }
+            .retry { delay(2.seconds); true }
+            .onCompletion { max.post("Disconnected from the server") }
+            .collect()
     }
 
     private suspend fun openServerSession() {
         openWebSocketSession {
-            launch {
+            launch(start = CoroutineStart.ATOMIC) {
                 while (true) {
                     receiveMessage()
                 }
             }
 
-            for (ev in noteEvents.produceIn(this)) {
-                launch { processNoteEvent(ev) }
+            launch(start = CoroutineStart.ATOMIC) {
+                for (ev in noteEvents.produceIn(this)) {
+                    launch { processNoteEvent(ev) }
+                }
             }
-        }
-    }
 
-    private suspend fun testGetRequest() {
-        val url = URLBuilder()
-            .apply {
-                protocol = URLProtocol.HTTP
-                host = serverHost
-                encodedPath = "/test"
-            }
-            .buildString()
-
-        max.post("Test url is $url")
-
-        try {
-            val responseText = client.get(url).bodyAsText()
-            max.post("got test response $responseText")
-        } catch (ex: CancellationException) {
-            throw ex
-        } catch (ex: Throwable) {
-            ex.printStackTrace()
+            max.outlet("status", "running")
         }
     }
 
     private suspend fun openWebSocketSession(
         block: suspend DefaultClientWebSocketSession.() -> Unit,
     ) {
-        val url = URLBuilder()
-            .apply {
-                protocol = if ("localhost" in serverHost) {
-                    URLProtocol.WS
-                } else {
-                    URLProtocol.WSS
-                }
-                host = serverHost
-                path("consensus", sessionId, "device", sessionPin)
+        val url = buildUrl {
+            protocol = if ("localhost" in serverHost) {
+                URLProtocol.WS
+            } else {
+                URLProtocol.WSS
             }
-            .buildString()
+            host = serverHost
+            path("consensus", sessionId, "device", sessionPin)
+        }.toString()
 
         max.post("Opening websocket connection to $url")
         try {
