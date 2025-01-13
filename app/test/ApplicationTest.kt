@@ -5,7 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.ktor.client.request.*
 import io.ktor.client.statement.*
 import io.ktor.server.testing.*
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 
 class ApplicationTest {
     @Test

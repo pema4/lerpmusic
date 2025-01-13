@@ -1,21 +1,41 @@
+plugins {
+    alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.kotlin.compose)
+}
+
 kotlin {
     js {
         nodejs()
         binaries.executable()
     }
 
-    sourceSets {
-        val jsMain by getting {
-            dependencies {
-                implementation(npm("abort-controller", "3.0.0"))
-                implementation(npm("node-fetch", "2.6.1"))
-                implementation(npm("ws", "8.10.0"))
-            }
+    sourceSets.jsMain {
+        kotlin.srcDir("src")
+
+        dependencies {
+            implementation(project(":consensus-shared"))
+
+            implementation(libs.ktor.client.core)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
+            implementation(libs.ktor.client.js)
+            implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.molecule.runtime)
+            implementation(libs.arrow.suspendapp)
+            implementation(libs.kotlin.logging)
+
+            implementation(npm("abort-controller", "3.0.0"))
+            implementation(npm("node-fetch", "2.6.1"))
+            implementation(npm("ws", "8.10.0"))
+            api(devNpm("max-api", "2.0.0"))
         }
     }
 }
 
-val prepareDistribution = task<Sync>("prepareDistribution") {
+task<Sync>("prepareDistribution") {
     group = "deployment"
     dependsOn(
         "${project.path}:jsPublicPackageJson",

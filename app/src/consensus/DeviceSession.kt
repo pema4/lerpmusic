@@ -10,11 +10,9 @@ import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
 import lerpmusic.website.consensus.device.Device
 import lerpmusic.website.consensus.device.DeviceRepository
+import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
-
 
 fun Route.deviceSessionRoute(
     deviceRepository: DeviceRepository,
@@ -28,7 +26,7 @@ fun Route.deviceSessionRoute(
             deviceRepository.getAndUseDevice(
                 sessionId = sessionId,
                 sessionPin = sessionPin,
-                wsSession = this,
+                wsSession = this@webSocket,
             ) { device ->
                 if (device == null) {
                     return@getAndUseDevice

@@ -1,15 +1,6 @@
-package lerpmusic.website.portfolio
+package lerpmusic.website.masterportfolio
 
-import kotlinx.html.FlowContent
-import kotlinx.html.HTML
-import kotlinx.html.body
-import kotlinx.html.h1
-import kotlinx.html.h2
-import kotlinx.html.head
-import kotlinx.html.li
-import kotlinx.html.p
-import kotlinx.html.title
-import kotlinx.html.ul
+import kotlinx.html.*
 
 fun HTML.indexPage() {
     head {

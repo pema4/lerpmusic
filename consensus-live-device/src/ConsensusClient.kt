@@ -1,24 +1,16 @@
 package lerpmusic.consensus.device
 
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.HttpClientEngineFactory
-import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
-import io.ktor.client.plugins.websocket.WebSockets
-import io.ktor.client.plugins.websocket.receiveDeserialized
-import io.ktor.client.plugins.websocket.sendSerialized
-import io.ktor.client.plugins.websocket.ws
-import io.ktor.client.plugins.websocket.wss
-import io.ktor.client.request.get
-import io.ktor.client.statement.bodyAsText
-import io.ktor.http.URLBuilder
-import io.ktor.http.URLProtocol
-import io.ktor.http.encodedPath
-import io.ktor.http.path
-import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.consume
-import kotlinx.coroutines.coroutineScope
+import io.ktor.client.*
+import io.ktor.client.plugins.websocket.*
+import io.ktor.client.request.*
+import io.ktor.client.statement.*
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.produceIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
@@ -26,51 +18,62 @@ import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
 import lerpmusic.consensus.NoteEvent
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.coroutines.coroutineContext
+import kotlin.time.Duration.Companion.seconds
 
 class ConsensusClient(
     private val serverHost: String,
     private val sessionId: String,
     private val sessionPin: String,
-    private val noteEvents: ReceiveChannel<NoteEvent?>,
-    private val play: (NoteEvent) -> Unit,
-    httpClientEngineFactory: HttpClientEngineFactory<*>,
     private val max: Max,
 ) {
+    private val noteEvents: Flow<NoteEvent?> =
+        max.inlet3("midiIn")
+            .mapNotNull { (a, b, c) ->
+                NoteEvent.fromRaw(
+                    channel = a as? Int ?: return@mapNotNull null,
+                    pitch = b as? Int ?: return@mapNotNull null,
+                    velocity = c as? Int ?: return@mapNotNull null,
+                )
+            }
+
     private val delayedNoteOns = mutableMapOf<Note, NoteEvent.NoteOn>()
 
-    private val client = HttpClient(httpClientEngineFactory) {
+    private val client = HttpClient {
         install(WebSockets) {
             maxFrameSize = Long.MAX_VALUE
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
         }
     }
 
-    suspend fun start() {
-        try {
-            connectToServer()
-        } catch (ex: CancellationException) {
-            Max.post("Disconnected from the server")
-            throw ex
-        } catch (ex: Throwable) {
-            ex.printStackTrace()
-            Max.post("Got exception $ex")
-            throw ex
+    suspend fun run() {
+        while (coroutineContext.isActive) {
+            try {
+                max.outlet("status", "running")
+                openServerSession()
+            } catch (ex: CancellationException) {
+                max.outlet("status", "stopped")
+                Max.post("Disconnected from the server")
+                throw ex
+            } catch (ex: Throwable) {
+                max.outlet("status", "stopped")
+                ex.printStackTrace()
+                Max.post("Got exception $ex")
+                delay(2.seconds)
+            }
         }
     }
 
-    private suspend fun connectToServer() {
-//        testGetRequest()
+    private suspend fun openServerSession() {
         openWebSocketSession {
-            coroutineScope {
-                launch {
-                    while (true) {
-                        receiveMessage()
-                    }
+            launch {
+                while (true) {
+                    receiveMessage()
                 }
+            }
 
-                for (ev in noteEvents) {
-                    launch { processNoteEvent(ev) }
-                }
+            for (ev in noteEvents.produceIn(this)) {
+                launch { processNoteEvent(ev) }
             }
         }
     }
@@ -128,7 +131,7 @@ class ConsensusClient(
             is DeviceResponse.PlayNote -> {
                 val delayedNote = delayedNoteOns.remove(ev.note)
                 if (delayedNote != null) {
-                    play(delayedNote)
+                    launch { play(delayedNote) }
                 }
             }
         }
@@ -152,13 +155,23 @@ class ConsensusClient(
             is NoteEvent.NoteOff -> {
                 // note on для этой ноты не проигрывался
                 if (delayedNoteOns.remove(ev.note) == null) {
-                    play(ev)
+                    launch { play(ev) }
                 } else {
                     val msg = DeviceRequest.CancelNote(ev.note)
                     max.post("cancelled note ${ev.note}")
                     sendSerialized<DeviceRequest>(msg)
                 }
             }
+        }
+    }
+
+    private suspend fun play(ev: NoteEvent) {
+        when (ev) {
+            is NoteEvent.NoteOn ->
+                max.outlet("midiOut", ev.note.channel, ev.note.pitch, ev.velocity)
+
+            is NoteEvent.NoteOff ->
+                max.outlet("midiOut", ev.note.channel, ev.note.pitch, 0)
         }
     }
 }

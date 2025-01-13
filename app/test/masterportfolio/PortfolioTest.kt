@@ -1,9 +1,9 @@
-package lerpmusic.website.portfolio
+package lerpmusic.website.masterportfolio
 
 import io.ktor.client.request.*
 import io.ktor.http.*
 import io.ktor.server.testing.*
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 
 class PortfolioTest {

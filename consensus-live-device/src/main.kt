@@ -1,25 +1,12 @@
 package lerpmusic.consensus.device
 
-import io.ktor.client.engine.js.Js
+import app.cash.molecule.RecompositionMode
+import app.cash.molecule.launchMolecule
+import arrow.continuations.SuspendApp
 import kotlinx.coroutines.coroutineScope
 
-suspend fun main() {
-    coroutineScope {
-        val script = ConsensusScript(
-            max = Max,
-            httpClientEngineFactory = Js,
-            coroutineScope = this
-        )
-        script.start()
+fun main() = SuspendApp {
+    launchMolecule(mode = RecompositionMode.Immediate) {
+        ConsensusScript(max = Max)
     }
-//    MainScope().launch {
-//        client.get("http://localhost:8081/test")
-//    }
 }
-
-//private val client = HttpClient(Js) {
-//    install(WebSockets) {
-//        maxFrameSize = Long.MAX_VALUE
-//        contentConverter = KotlinxWebsocketSerializationConverter(Json)
-//    }
-//}

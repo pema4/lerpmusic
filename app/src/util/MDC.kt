@@ -1,12 +1,11 @@
-package lerpmusic.website.consensus
+package lerpmusic.website.util
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.slf4j.MDCContext
 import kotlinx.coroutines.withContext
 import org.slf4j.MDC
 
-suspend fun <T> withCallIdInMDC(callId: String?, block: suspend () -> T) {
-    MDC.put("call-id", callId)
-    withContext(MDCContext()) {
-        block()
-    }
+suspend fun <T> withCallIdInMDC(callId: String?, block: suspend CoroutineScope.() -> T) {
+    val contextMap = MDC.getCopyOfContextMap().apply { put("call-id", callId) }
+    withContext(MDCContext(contextMap), block)
 }
