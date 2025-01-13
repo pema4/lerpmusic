@@ -1,16 +1,16 @@
 [versions]
 kotlin = "2.1.0"
-ktor = "3.0.3"
 kotlinx-coroutines = "1.10.1"
 kotlinx-serialization = "1.8.0"
+ktor = "3.0.3"
 molecule = "2.0.0"
 
 [plugins]
-ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
+kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
-kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlin" }
+ktor = { id = "io.ktor.plugin", version.ref = "ktor" }
 
 [libraries]
 arrow-suspendapp = { module = "io.arrow-kt:suspendapp", version = "0.4.0" }
@@ -19,7 +19,6 @@ kotest-assertions-ktor = { module = "io.kotest.extensions:kotest-assertions-ktor
 kotlin-logging = { module = "io.github.microutils:kotlin-logging", version = "3.0.5" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-slf4j = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-slf4j", version.ref = "kotlinx-coroutines" }
-#kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version = "0.3.5" }
 kotlinx-serialization-core = { module = "org.jetbrains.kotlinx:kotlinx-serialization-core", version.ref = "kotlinx-serialization" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
 ktor-client-content-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
@@ -39,7 +38,7 @@ ktor-server-netty = { module = "io.ktor:ktor-server-netty", version.ref = "ktor"
 ktor-server-partial-content = { module = "io.ktor:ktor-server-partial-content", version.ref = "ktor" }
 ktor-server-test-host = { module = "io.ktor:ktor-server-test-host", version.ref = "ktor" }
 ktor-server-websockets = { module = "io.ktor:ktor-server-websockets", version.ref = "ktor" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.4.5" }
+logback-classic = { module = "ch.qos.logback:logback-classic", version = "1.5.9" }
 molecule-runtime = { module = "app.cash.molecule:molecule-runtime", version.ref = "molecule" }
 zxing-core = { module = "com.google.zxing:core", version = "3.5.3" }
 zxing-javase = { module = "com.google.zxing:javase", version = "3.5.3" }

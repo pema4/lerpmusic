@@ -21,7 +21,8 @@ dependencies {
     implementation(project(":consensus-shared"))
 
     implementation(libs.kotlinx.coroutines.slf4j)
-    runtimeOnly(libs.kotlin.logging)
+    implementation(libs.kotlin.logging)
+    runtimeOnly(libs.logback.classic)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(libs.ktor.server.auto.head.response)
     implementation(libs.ktor.server.call.id)
