@@ -1,13 +1,12 @@
 package lerpmusic.consensus.device
 
+import arrow.core.raise.nullable
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.http.*
 import io.ktor.serialization.kotlinx.*
-import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
@@ -15,20 +14,22 @@ import lerpmusic.consensus.Note
 import lerpmusic.consensus.NoteEvent
 import kotlin.time.Duration.Companion.seconds
 
-class ConsensusClient(
+class ConsensusSession(
     private val serverHost: String,
     private val sessionId: String,
     private val sessionPin: String,
     private val max: Max,
 ) {
     private val noteEvents: Flow<NoteEvent?> =
-        max.inlet3("midiIn")
+        max.inlet3("midiin")
             .mapNotNull { (a, b, c) ->
-                NoteEvent.fromRaw(
-                    channel = a as? Int ?: return@mapNotNull null,
-                    pitch = b as? Int ?: return@mapNotNull null,
-                    velocity = c as? Int ?: return@mapNotNull null,
-                )
+                nullable {
+                    NoteEvent.fromRaw(
+                        channel = (a as? Int).bind(),
+                        pitch = (b as? Int).bind(),
+                        velocity = (c as? Int).bind(),
+                    )
+                }
             }
 
     private val delayedNoteOns = mutableMapOf<Note, NoteEvent.NoteOn>()
@@ -36,6 +37,7 @@ class ConsensusClient(
     private val client = HttpClient {
         install(WebSockets) {
             contentConverter = KotlinxWebsocketSerializationConverter(Json)
+            pingInterval = 15.seconds
         }
     }
 
@@ -48,21 +50,26 @@ class ConsensusClient(
                 throw ex
             }
             .retry { delay(2.seconds); true }
-            .onCompletion { max.post("Disconnected from the server") }
+            .onCompletion {
+                withContext(NonCancellable) {
+                    max.outlet("status", "stopped")
+                    max.post("Disconnected from the server")
+                }
+            }
             .collect()
     }
 
     private suspend fun openServerSession() {
-        openWebSocketSession {
+        openWebSocketSession { ws ->
             launch(start = CoroutineStart.ATOMIC) {
                 while (true) {
-                    receiveMessage()
+                    receiveMessage(ws)
                 }
             }
 
             launch(start = CoroutineStart.ATOMIC) {
                 for (ev in noteEvents.produceIn(this)) {
-                    launch { processNoteEvent(ev) }
+                    launch { processNoteEvent(ws, ev) }
                 }
             }
 
@@ -71,7 +78,7 @@ class ConsensusClient(
     }
 
     private suspend fun openWebSocketSession(
-        block: suspend DefaultClientWebSocketSession.() -> Unit,
+        block: suspend CoroutineScope.(ws: DefaultClientWebSocketSession) -> Unit,
     ) {
         val url = buildUrl {
             protocol = if ("localhost" in serverHost) {
@@ -81,24 +88,24 @@ class ConsensusClient(
             }
             host = serverHost
             path("consensus", sessionId, "device", sessionPin)
-        }.toString()
+        }
 
         max.post("Opening websocket connection to $url")
         try {
-            if ("localhost" in serverHost) {
-                client.ws(url) { block() }
+            if (url.protocol == URLProtocol.WSS) {
+                client.wss(url.toString()) { coroutineScope { block(this@wss) } }
             } else {
-                client.wss(url) { block() }
+                client.ws(url.toString()) { coroutineScope { block(this@ws) } }
             }
         } finally {
             max.post("Closing websocket connection to $url")
         }
     }
 
-    private suspend fun DefaultClientWebSocketSession.receiveMessage() {
-        when (val ev = receiveDeserialized<DeviceResponse>()) {
+    private suspend fun CoroutineScope.receiveMessage(ws: DefaultClientWebSocketSession) {
+        when (val event = ws.receiveDeserialized<DeviceResponse>()) {
             is DeviceResponse.PlayNote -> {
-                val delayedNote = delayedNoteOns.remove(ev.note)
+                val delayedNote = delayedNoteOns.remove(event.note)
                 if (delayedNote != null) {
                     launch { play(delayedNote) }
                 }
@@ -106,29 +113,30 @@ class ConsensusClient(
         }
     }
 
-    private suspend fun DefaultClientWebSocketSession.processNoteEvent(
-        ev: NoteEvent?,
+    private suspend fun CoroutineScope.processNoteEvent(
+        ws: DefaultClientWebSocketSession,
+        event: NoteEvent?,
     ) {
-        max.post("Got midi event $ev")
+        max.post("Got midi event $event")
 
-        when (ev) {
+        when (event) {
             null -> return
 
             is NoteEvent.NoteOn -> {
-                if (delayedNoteOns.put(ev.note, ev) == null) {
-                    val msg = DeviceRequest.AskNote(ev.note)
-                    sendSerialized<DeviceRequest>(msg)
+                if (delayedNoteOns.put(event.note, event) == null) {
+                    val msg = DeviceRequest.AskNote(event.note)
+                    ws.sendSerialized<DeviceRequest>(msg)
                 }
             }
 
             is NoteEvent.NoteOff -> {
                 // note on для этой ноты не проигрывался
-                if (delayedNoteOns.remove(ev.note) == null) {
-                    launch { play(ev) }
+                if (delayedNoteOns.remove(event.note) == null) {
+                    launch { play(event) }
                 } else {
-                    val msg = DeviceRequest.CancelNote(ev.note)
-                    max.post("cancelled note ${ev.note}")
-                    sendSerialized<DeviceRequest>(msg)
+                    val msg = DeviceRequest.CancelNote(event.note)
+                    max.post("cancelled note ${event.note}")
+                    ws.sendSerialized<DeviceRequest>(msg)
                 }
             }
         }

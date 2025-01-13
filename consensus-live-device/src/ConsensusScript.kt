@@ -1,50 +1,47 @@
 package lerpmusic.consensus.device
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
-import app.cash.molecule.moleculeFlow
+import arrow.core.raise.nullable
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.debounce
-import kotlinx.coroutines.launch
-import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.*
 
-@OptIn(FlowPreview::class)
-@Composable
-fun ConsensusScript(max: Max) {
-    val serverHost: String? by produceState(initialValue = null) {
-        max.inlet("serverHost")
-            .debounce(1.seconds)
-            .collect { value = it?.toString() }
+class ConsensusScript(
+    private val max: Max,
+) {
+    @OptIn(FlowPreview::class)
+    suspend fun mainLoop(): Nothing = coroutineScope {
+        val serverHost: StateFlow<String?> = max.inlet("serverHost")
+            .map { it.toString() }
+            .stateIn(this, started = SharingStarted.Eagerly, initialValue = null)
+        serverHost.onEach { max.post("Got serverHost of '$it'") }.launchIn(this)
+
+        val sessionId: StateFlow<String?> = max.inlet("sessionId")
+            .map { it.toString() }
+            .stateIn(this, started = SharingStarted.Eagerly, initialValue = null)
+        sessionId.onEach { max.post("Got sessionId of '$it'") }.launchIn(this)
+
+        val sessionPin: StateFlow<String?> = max.inlet("sessionPin")
+            .map { it.toString() }
+            .stateIn(this, started = SharingStarted.Eagerly, initialValue = null)
+        sessionPin.onEach { max.post("Got sessionPin of '$it'") }.launchIn(this)
+
+        val session: Flow<ConsensusSession?> =
+            combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
+                nullable {
+                    ConsensusSession(
+                        serverHost = serverHost.bind(),
+                        sessionId = sessionId.bind(),
+                        sessionPin = sessionPin.bind(),
+                        max = max,
+                    )
+                }
+            }
+
+        session
+            .filterNotNull()
+            .onStart { max.outlet("status", "initialized") }
+            .collectLatest { it.run() }
+
+        error("Main loop should run indefinitely (until cancellation)")
     }
-    LaunchedEffect(serverHost) { max.post("Got serverHost of '$serverHost'") }
-
-    val sessionId: String? by produceState(initialValue = null) {
-        max.inlet("sessionId")
-            .debounce(1.seconds)
-            .collect { value = it?.toString() }
-    }
-    LaunchedEffect(sessionId) { max.post("Got sessionId of '$sessionId'") }
-
-    val sessionPin: String? by produceState(null) {
-        max.inlet("sessionPin")
-            .debounce(1.seconds)
-            .collect { value = it?.toString() }
-    }
-    LaunchedEffect(sessionPin) { max.post("Got sessionPin of '$sessionPin'") }
-
-    LaunchedEffect(serverHost, sessionId, sessionPin) {
-        if (serverHost != null && sessionId != null && sessionPin != null) {
-            val client = ConsensusClient(
-                serverHost = serverHost!!,
-                sessionId = sessionId!!,
-                sessionPin = sessionPin!!,
-                max = max,
-            )
-            client.run()
-        }
-    }
-
-    LaunchedEffect(Unit) { max.outlet("status", "initialized") }
 }

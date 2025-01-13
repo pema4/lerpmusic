@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlin.js.Promise
 
+@Suppress("unused")
 @JsModule("max-api")
 @JsNonModule
 external object MaxApi {
@@ -41,7 +42,7 @@ object Max {
 
     private fun addHandlerImpl(
         selector: Any,
-        handler: Function<Unit>,
+        handler: dynamic,
     ): DisposableHandle {
         api.addHandler(selector, handler)
         return DisposableHandle { api.removeHandler(selector, handler) }
