@@ -44,4 +44,5 @@ gradle-app.setting
 **/*.dylib
 
 node_modules
-**/.kotlin/
+
+**/.kotlin
