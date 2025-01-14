@@ -12,6 +12,7 @@ kotlin {
     sourceSets.commonMain {
         kotlin.srcDir("src")
         dependencies {
+            implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.serialization.core)
         }
     }

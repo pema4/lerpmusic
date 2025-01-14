@@ -13,7 +13,7 @@ kotlin {
         kotlin.srcDir("src")
 
         dependencies {
-            implementation(project(":consensus-shared"))
+            implementation(project(":consensus-domain"))
 
             implementation(libs.ktor.client.core)
             implementation(libs.kotlinx.coroutines.core)

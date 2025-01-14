@@ -21,5 +21,5 @@ plugins {
 }
 
 include(":consensus-live-device")
-include(":consensus-shared")
+include(":consensus-domain")
 include(":app")

@@ -21,7 +21,7 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":consensus-shared"))
+    implementation(project(":consensus-domain"))
 
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.coroutines.slf4j)
