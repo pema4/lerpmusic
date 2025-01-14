@@ -26,9 +26,22 @@ kotlin {
             implementation(libs.arrow.core)
             implementation(libs.kotlin.logging)
 
+            // https://youtrack.jetbrains.com/issue/KT-57235/KJS-Coroutines-Could-not-find-org.jetbrains.kotlinkotlinx-atomicfu-runtime-with-Coroutines-1.7.0-Beta-and-Kotlin-1.8.20-RC-and
+            runtimeOnly("org.jetbrains.kotlin:kotlinx-atomicfu-runtime:2.1.0")
+
             implementation(npm("abort-controller", "3.0.0"))
             implementation(npm("node-fetch", "2.6.1"))
             implementation(npm("ws", "8.10.0"))
+        }
+    }
+
+    sourceSets.jsTest {
+        kotlin.srcDir("test")
+
+        dependencies {
+            implementation(libs.kotlin.test)
+            implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.kotest.assertions.core)
         }
     }
 }

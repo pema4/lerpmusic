@@ -18,22 +18,22 @@ class Consensus(
         val playingNotes = mutableSetOf<Note>()
 
         composition.events.collect { event ->
-            launch {
-                when (event) {
-                    is NoteEvent.NoteOn -> {
+            when (event) {
+                is NoteEvent.NoteOn -> {
+                    launch {
                         if (audience.shouldPlayNote(event.note)) {
                             mutex.withLock { playingNotes += event.note }
                             composition.play(event)
                         }
                     }
+                }
 
-                    is NoteEvent.NoteOff -> {
-                        audience.cancelNote(event.note)
+                is NoteEvent.NoteOff -> {
+                    audience.cancelNote(event.note)
 
-                        val wasPlaying = mutex.withLock { playingNotes.remove(event.note) }
-                        if (wasPlaying) {
-                            composition.play(event)
-                        }
+                    val wasPlaying = mutex.withLock { playingNotes.remove(event.note) }
+                    if (wasPlaying) {
+                        launch { composition.play(event) }
                     }
                 }
             }

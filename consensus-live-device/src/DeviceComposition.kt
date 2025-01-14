@@ -12,12 +12,12 @@ class DeviceComposition(
 ) : Composition {
     override val events: Flow<NoteEvent> =
         max.inlet3("midiin")
-            .mapNotNull { (a, b, c) ->
+            .mapNotNull {
                 nullable {
                     NoteEvent.Companion.fromRaw(
-                        channel = (a as? Int).bind(),
-                        pitch = (b as? Int).bind(),
-                        velocity = (c as? Int).bind(),
+                        channel = (it?.a as? Int).bind(),
+                        pitch = (it.b as? Int).bind(),
+                        velocity = (it.c as? Int).bind(),
                     )
                 }
             }
