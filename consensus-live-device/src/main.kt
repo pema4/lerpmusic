@@ -54,6 +54,7 @@ fun main() = SuspendApp {
                         composition = DeviceComposition(max),
                         audience = DeviceAudience(serverConnection, max)
                     )
+                    max.outlet("status", "running")
                     consensus.run()
                 }
             }
