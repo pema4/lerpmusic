@@ -57,9 +57,10 @@ object MaxMessageTypes {
     const val LIST = "LIST"
 }
 
-fun Max.inlet(selector: String): Flow<Any> =
+fun Max.inlet(selector: String, initialValue: Any? = null): Flow<Any?> =
     callbackFlow {
         val handler = addHandler(selector) { a -> trySend(a) }
+        trySend(initialValue)
         awaitClose { handler.dispose() }
     }
 

@@ -40,13 +40,12 @@ class DeviceAudience(
             // 3. Ждём ответ
             deferredResponse.await()
         } catch (ex: RuntimeException) {
-            max.post("Cancelled note $note")
-
             // Результат shouldPlayNote больше не нужен — чистим ресурсы
             // Компенсация шага 2 — сообщаем серверу, что ответ больше не нужен
             if (requestSent) {
                 withContext(NonCancellable) {
                     try {
+                        max.post("Cancelling note request $note")
                         serverConnection.sendSerialized<DeviceRequest>(DeviceRequest.CancelNote(note))
                     } catch (suppressed: Throwable) {
                         ex.addSuppressed(suppressed)
@@ -69,7 +68,7 @@ class DeviceAudience(
         }
     }
 
-    override suspend fun cancelNote(note: Note) {
+    override fun cancelNote(note: Note) {
         deferredResponses[note]?.cancel()
     }
 }

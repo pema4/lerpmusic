@@ -24,13 +24,16 @@ private val httpClient = HttpClient {
 
 fun main() = SuspendApp {
     val serverHost: Flow<String?> = max.inlet("serverHost")
-        .map { it.toString().takeIf { it.isNotBlank() } }
+        .map { it?.toString()?.takeIf { it.isNotBlank() } }
+        .stateIn(this)
 
     val sessionId: Flow<String?> = max.inlet("sessionId")
-        .map { it.toString().takeIf { it.isNotBlank() } }
+        .map { it?.toString()?.takeIf { it.isNotBlank() } }
+        .stateIn(this)
 
     val sessionPin: Flow<String?> = max.inlet("sessionPin")
-        .map { it.toString().takeIf { it.isNotBlank() } }
+        .map { it?.toString()?.takeIf { it.isNotBlank() } }
+        .stateIn(this)
 
     val configuration = combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
         nullable {
@@ -43,7 +46,6 @@ fun main() = SuspendApp {
     }
 
     configuration
-        .distinctUntilChanged()
         .onStart { max.outlet("status", "initialized") }
         .collectLatest { configuration ->
             max.post("Restarting with configuration: $configuration")

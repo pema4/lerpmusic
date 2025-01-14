@@ -3,33 +3,37 @@ package lerpmusic.consensus
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
- * Алгоритм, используемый в композиции.
- *
- * Доменная модель алгоритма:
- * - не упоминает сервер
- *     - или идёт с точки зрения алгоритма
- *     - или с точки зрения сервера
- * - так как взаимодействие двунаправленное — музыкант спрашивает аудиторию, аудитория отвечает музыканту,
- * не понятно, с чьей точки зрения моделировать домен
+ * Алгоритм по фильтрации нот, используемый в композиции.
  */
 class Consensus(
     val composition: Composition,
     val audience: Audience,
 ) {
     suspend fun run() = supervisorScope {
+        val mutex = Mutex()
+        val playingNotes = mutableSetOf<Note>()
+
         composition.events.collect { event ->
             launch {
                 when (event) {
                     is NoteEvent.NoteOn -> {
                         if (audience.shouldPlayNote(event.note)) {
+                            mutex.withLock { playingNotes += event.note }
                             composition.play(event)
                         }
                     }
 
                     is NoteEvent.NoteOff -> {
                         audience.cancelNote(event.note)
+
+                        val wasPlaying = mutex.withLock { playingNotes.remove(event.note) }
+                        if (wasPlaying) {
+                            composition.play(event)
+                        }
                     }
                 }
             }
@@ -59,5 +63,5 @@ interface Audience {
     /**
      * Отменить запрос на проигрывание ноты, запущенный через [shouldPlayNote].
      */
-    suspend fun cancelNote(note: Note)
+    fun cancelNote(note: Note)
 }
