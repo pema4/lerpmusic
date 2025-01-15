@@ -1,6 +1,6 @@
 package lerpmusic.website.consensus.device
 
-import io.ktor.server.websocket.WebSocketServerSession
+import io.ktor.server.websocket.*
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
 import lerpmusic.website.consensus.NoteQueue

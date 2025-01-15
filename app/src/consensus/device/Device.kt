@@ -1,9 +1,7 @@
 package lerpmusic.website.consensus.device
 
-import io.ktor.server.plugins.callid.callId
-import io.ktor.server.websocket.WebSocketServerSession
-import io.ktor.server.websocket.receiveDeserialized
-import io.ktor.server.websocket.sendSerialized
+import io.ktor.server.plugins.callid.*
+import io.ktor.server.websocket.*
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note

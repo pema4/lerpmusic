@@ -4,16 +4,12 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.client.j2se.MatrixToImageConfig
 import com.google.zxing.client.j2se.MatrixToImageWriter
 import com.google.zxing.qrcode.QRCodeWriter
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.call
-import io.ktor.server.http.content.resolveResource
-import io.ktor.server.plugins.callid.callId
-import io.ktor.server.request.host
-import io.ktor.server.request.port
-import io.ktor.server.response.respond
-import io.ktor.server.response.respondOutputStream
-import io.ktor.server.routing.Route
-import io.ktor.server.routing.get
+import io.ktor.server.application.*
+import io.ktor.server.http.content.*
+import io.ktor.server.plugins.callid.*
+import io.ktor.server.request.*
+import io.ktor.server.response.*
+import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +23,6 @@ import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.toJavaDuration
 
 private val log = KotlinLogging.logger {}
 

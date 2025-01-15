@@ -1,6 +1,5 @@
 package lerpmusic.website.consensus
 
-import io.ktor.server.application.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import lerpmusic.website.consensus.device.DeviceRepository
