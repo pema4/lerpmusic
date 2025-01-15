@@ -20,6 +20,7 @@ plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
 }
 
-include(":consensus-live-device")
-include(":consensus-domain")
 include(":app")
+include(":consensus-domain")
+include(":consensus-midi-filter")
+include(":consensus-mod")

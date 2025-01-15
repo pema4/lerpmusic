@@ -22,7 +22,7 @@ private val httpClient = HttpClient {
     }
 }
 
-fun main() = SuspendApp {
+fun main(vararg args: String) = SuspendApp {
     val serverHost: Flow<String?> = max.inlet("serverHost")
         .map { it?.toString()?.takeIf { it.isNotBlank() } }
         .stateIn(this)

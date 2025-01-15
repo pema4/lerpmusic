@@ -1,7 +1,9 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     kotlin("jvm")
-    application
     alias(libs.plugins.ktor)
+    application
 }
 
 group = "ru.lerpmusic"
@@ -17,6 +19,18 @@ kotlin {
             kotlin.srcDir("test")
             resources.srcDir("testResources")
         }
+    }
+
+    compilerOptions {
+        allWarningsAsErrors = false
+        jvmTarget = JvmTarget.JVM_21
+    }
+}
+
+java {
+    toolchain {
+        sourceCompatibility = JavaVersion.VERSION_21
+        targetCompatibility = JavaVersion.VERSION_21
     }
 }
 

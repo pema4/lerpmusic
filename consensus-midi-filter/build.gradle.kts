@@ -1,6 +1,6 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.kotlin.serialization)
+    kotlin("multiplatform")
+    kotlin("plugin.serialization") version "2.1.0"
 }
 
 kotlin {
@@ -56,14 +56,14 @@ task<Sync>("prepareDistribution") {
     val projectDir = project.layout.projectDirectory
     val buildDir = project.layout.buildDirectory
 
-    from(projectDir.file("consensus.amxd"))
+    from(projectDir.file("consensus-midi-filter.amxd"))
     from(buildDir.dir("tmp/jsPublicPackageJson"))
     from(buildDir.dir("compileSync/js/main/productionExecutable/kotlin")) {
-        include("lerpmusic-site-consensus-live-device.js")
+        include("lerpmusic-site-consensus-midi-filter.js")
     }
     rename {
-        if (it == "lerpmusic-site-consensus-live-device.js") {
-            "consensus.js"
+        if (it == "lerpmusic-site-consensus-midi-filter.js") {
+            "script.js"
         } else {
             it
         }
