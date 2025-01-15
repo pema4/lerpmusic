@@ -22,5 +22,4 @@ plugins {
 
 include(":app")
 include(":consensus-domain")
-include(":consensus-midi-filter")
-include(":consensus-mod")
+include(":consensus-device")

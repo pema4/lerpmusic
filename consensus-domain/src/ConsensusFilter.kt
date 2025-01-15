@@ -13,7 +13,7 @@ class ConsensusFilter(
     val composition: Composition,
     val audience: Audience,
 ) {
-    suspend fun run() = supervisorScope {
+    suspend fun filterCompositionEvents() = supervisorScope {
         val mutex = Mutex()
         val playingNotes = mutableSetOf<Note>()
 
@@ -41,6 +41,10 @@ class ConsensusFilter(
     }
 }
 
+interface CompositionEvent {
+    val note: Note
+}
+
 interface Composition {
     /**
      * Входящие MIDI-события.
@@ -52,9 +56,19 @@ interface Composition {
      * Воспроизвести событие, полученное из [events].
      */
     suspend fun play(ev: NoteEvent)
+
+    /**
+     * Воспроизвести событие, полученное из [events].
+     */
+    suspend fun modulateIntensity(intensity: Double)
 }
 
 interface Audience {
+    /**
+     * Изменения интенсивности
+     */
+    val intensityDeltaUpdates: Flow<Double>
+
     /**
      * Спросить слушателей, нужно ли проиграть ноту.
      */

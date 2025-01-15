@@ -16,6 +16,7 @@ value class SessionPin(val value: String) {
     }
 }
 
+
 data class Session(
     val id: SessionId,
     val pin: SessionPin,

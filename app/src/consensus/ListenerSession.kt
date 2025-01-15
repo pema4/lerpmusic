@@ -67,7 +67,7 @@ fun Route.listenerSessionRoute(
         }
     }
 
-    webSocket("/client") {
+    webSocket("/listener") {
         val sessionId = call.sessionId
 
         withCallIdInMDC(call.callId) {

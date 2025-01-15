@@ -16,14 +16,14 @@ class DeviceRepository(
     suspend fun getAndUseDevice(
         sessionId: SessionId,
         sessionPin: SessionPin,
-        wsSession: WebSocketServerSession,
+        deviceConnection: WebSocketServerSession,
         block: suspend (Device?) -> Unit,
     ) {
         if (!sessionRepository.exists(sessionId, sessionPin)) {
             return block(null)
         }
 
-        val device = Device(sessionId, wsSession)
+        val device = Device(sessionId, deviceConnection)
         try {
             activeDevices.compute(sessionId) { _, devices ->
                 devices.orEmpty() + device

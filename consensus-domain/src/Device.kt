@@ -19,6 +19,14 @@ sealed class DeviceRequest {
     data class CancelNote(
         val note: Note,
     ) : DeviceRequest()
+
+    @Serializable
+    @SerialName("AskIntensityUpdates")
+    data object ReceiveIntensityUpdates : DeviceRequest()
+
+    @Serializable
+    @SerialName("AskIntensityUpdates")
+    data object CancelIntensityUpdates : DeviceRequest()
 }
 
 /**
@@ -31,4 +39,6 @@ sealed class DeviceResponse {
     data class PlayNote(
         val note: Note
     ) : DeviceResponse()
+
+    data class IntensityUpdate(val delta: Int) : DeviceResponse()
 }

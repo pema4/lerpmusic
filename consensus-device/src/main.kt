@@ -57,7 +57,7 @@ fun main(vararg args: String) = SuspendApp {
                         audience = DeviceAudience(serverConnection, max)
                     )
                     max.outlet("status", "running")
-                    consensus.run()
+                    consensus.filterCompositionEvents()
                 }
             }
         }

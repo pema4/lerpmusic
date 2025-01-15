@@ -30,7 +30,7 @@ fun Route.deviceSessionRoute(
             deviceRepository.getAndUseDevice(
                 sessionId = sessionId,
                 sessionPin = sessionPin,
-                wsSession = this@webSocket,
+                deviceConnection = this@webSocket,
             ) { device ->
                 if (device == null) {
                     return@getAndUseDevice
@@ -77,6 +77,10 @@ suspend fun Device.processRequests(
             is DeviceRequest.CancelNote -> {
                 consensusService.cancelNote(this, request.note)
             }
+
+            is DeviceRequest.ReceiveIntensityUpdates -> TODO()
+
+            is DeviceRequest.CancelIntensityUpdates -> TODO()
         }
     }
 }

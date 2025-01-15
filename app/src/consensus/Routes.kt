@@ -1,12 +1,17 @@
 package lerpmusic.website.consensus
 
+import com.typesafe.config.ConfigFactory
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
+import lerpmusic.consensus.SessionPin
 import lerpmusic.website.consensus.device.DeviceRepository
 import lerpmusic.website.consensus.listener.ListenerRepository
 import lerpmusic.website.consensus.session.SessionRepository
 
-private val sessionRepository = SessionRepository()
+private val config = ConfigFactory.load("lerpmusic.conf")
+private val sessionRepository = SessionRepository(
+    sessionPin = SessionPin(config.getString("lerpmusic.consensus.sessionPin")),
+)
 
 private val noteQueue = NoteQueue()
 

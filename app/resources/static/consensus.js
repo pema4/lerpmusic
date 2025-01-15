@@ -19,7 +19,7 @@ function openConnection() {
     let socketUrl = href
         .replace(/https/, 'wss')
         .replace(/http/, 'ws')
-        .replace(/static\/consensus.html/, 'consensus/10') + '/client'
+        .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
     socket = new WebSocket(socketUrl);
 
     askingForAction = false;
