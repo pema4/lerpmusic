@@ -9,7 +9,7 @@ import kotlinx.coroutines.sync.withLock
 /**
  * Алгоритм по фильтрации нот, используемый в композиции.
  */
-class Consensus(
+class ConsensusFilter(
     val composition: Composition,
     val audience: Audience,
 ) {

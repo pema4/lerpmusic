@@ -4,10 +4,8 @@ plugins {
     kotlin("jvm")
     alias(libs.plugins.ktor)
     application
+    id("common-conventions")
 }
-
-group = "ru.lerpmusic"
-version = "1.0.0-SNAPSHOT"
 
 kotlin {
     sourceSets {

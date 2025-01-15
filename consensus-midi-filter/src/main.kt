@@ -9,7 +9,7 @@ import io.ktor.serialization.kotlinx.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
-import lerpmusic.consensus.Consensus
+import lerpmusic.consensus.ConsensusFilter
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -52,7 +52,7 @@ fun main(vararg args: String) = SuspendApp {
             if (configuration == null) return@collectLatest
             withRetries {
                 openServerConnection(configuration) { serverConnection ->
-                    val consensus = Consensus(
+                    val consensus = ConsensusFilter(
                         composition = DeviceComposition(max),
                         audience = DeviceAudience(serverConnection, max)
                     )

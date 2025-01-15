@@ -10,5 +10,9 @@ repositories {
 
 dependencies {
     implementation(libs.kotlin.gradle.plugin)
-    implementation(libs.kotlin.gradle.plugin)
+    implementation(
+        "org.jetbrains.kotlin.plugin.serialization",
+        "org.jetbrains.kotlin.plugin.serialization.gradle.plugin",
+        libs.versions.kotlin.asProvider().get()
+    )
 }
