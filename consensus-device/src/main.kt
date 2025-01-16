@@ -62,49 +62,45 @@ fun main() = SuspendApp {
         .onStart { max.outlet("status", "initialized") }
         .collectLatest { configuration ->
             max.post("Restarting with configuration: $configuration")
-            if (configuration != null) mainLoop(configuration, isIntensityRequested)
+            if (configuration == null) return@collectLatest
+
+            while (true) {
+                withRetries {
+                    openServerConnection(configuration) { serverConnection ->
+                        val consensus = Consensus(
+                            composition = DeviceComposition(max, isIntensityRequested),
+                            audience = DeviceAudience(serverConnection, max)
+                        )
+
+                        launch { consensus.filterCompositionEvents() }
+                        launch { consensus.receiveIntensityUpdates() }
+
+                        max.outlet("status", "running")
+                    }
+                }
+            }
         }
 }
 
-private suspend fun mainLoop(
-    configuration: ServerConnectionConfig,
-    isIntensityRequested: Flow<Boolean>,
-) {
-    withRetries {
-        openServerConnection(configuration) { serverConnection ->
-            val consensus = Consensus(
-                composition = DeviceComposition(max, isIntensityRequested),
-                audience = DeviceAudience(serverConnection, max)
-            )
-
-            launch { consensus.filterCompositionEvents() }
-            launch { consensus.receiveIntensityUpdates() }
-
-            max.outlet("status", "running")
-        }
-    }
-}
-
-private suspend fun <T> withRetries(
+private suspend fun withRetries(
     retryAfter: Duration = 2.seconds,
-    block: suspend CoroutineScope.() -> T,
-): T {
+    block: suspend CoroutineScope.() -> Unit,
+) {
     return flow { emit(coroutineScope { block() }) }
-        .catch { ex ->
+        .retryWhen { ex, retriesDone ->
             max.outlet("status", "stopped")
-            max.post("Got exception $ex")
+            max.post("Got exception $ex, retry attempt ${retriesDone + 1}")
             ex.printStackTrace()
-            throw ex
+            delay(retryAfter)
+            true
         }
-        .retry { delay(retryAfter); true }
         .onCompletion {
             withContext(NonCancellable) {
                 max.outlet("status", "stopped")
                 max.post("Disconnected from the server")
-                it?.printStackTrace()
             }
         }
-        .first()
+        .collect()
 }
 
 data class ServerConnectionConfig(
@@ -153,7 +149,6 @@ private suspend fun openServerConnection(
                 } catch (ex: WebsocketDeserializeException) {
                     if (ex.frame !is Frame.Close) throw ex
                 }
-
             }
         }
     } finally {
