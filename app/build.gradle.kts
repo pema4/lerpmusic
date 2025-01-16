@@ -12,6 +12,7 @@ kotlin {
         main {
             kotlin.srcDir("src")
             resources.srcDir("resources")
+            languageSettings.optIn("kotlin.uuid.ExperimentalUuidApi")
         }
         test {
             kotlin.srcDir("test")

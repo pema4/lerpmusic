@@ -4,7 +4,7 @@ import io.ktor.server.application.*
 import io.ktor.server.http.content.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
-import lerpmusic.website.consensus.consensusRoutes
+import lerpmusic.website.consensus.consensusSessionRoutes
 import lerpmusic.website.masterportfolio.masterPortfolioRoutes
 import lerpmusic.website.portfolio.portfolioRoutes
 import mu.KotlinLogging.logger
@@ -16,7 +16,7 @@ fun Application.configureRouting() {
 
         portfolioRoutes()
         masterPortfolioRoutes()
-        consensusRoutes()
+        consensusSessionRoutes()
 
         route("/test") {
             get {

@@ -71,6 +71,9 @@ suspend fun Listener.processRequests(
                 is ListenerRequest.Action -> {
                     launch { consensusService.playOldestNote(sessionId) }
                 }
+
+                ListenerRequest.DecreaseIntensity -> TODO()
+                ListenerRequest.IncreaseIntensity -> TODO()
             }
         }
     }

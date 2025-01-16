@@ -1,26 +1,60 @@
 package lerpmusic.consensus.device
 
-import io.ktor.client.plugins.websocket.*
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consume
+import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.Audience
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class DeviceAudience(
-    private val serverConnection: DefaultClientWebSocketSession,
+    private val serverConnection: ServerConnection,
     private val max: Max,
 ) : Audience {
     private val deferredResponses = mutableMapOf<Note, CompletableDeferred<Boolean>>()
+    private val receivedPongs = serverConnection.launchPinger()
 
-    init {
-        serverConnection.launch { receiveMessages() }
-    }
+    /**
+     * Небольшой абьюз [SharedFlow] и [SharingStarted.WhileSubscribed]:
+     * - при первой подписке на [intensityUpdates] будет отправлен запрос слушателю
+     * - при последней отписке слушателю отправится уведомление об отмене
+     * - если подписки нет, сообщения от слушателя бросаются на пол
+     *
+     * Эта конструкция заменяет атомарный флаг + дублирование логики подписки/отписки в [intensityUpdates]
+     */
+    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<Double>?> = flow {
+        // 1. начинаем слушать сообщения от слушателя
+        // Это происходит до отправки запроса, чтобы не просыпать никакие ответы
+        emit(MutableSharedFlow<Double>())
+
+        // 2. уведомляем слушателя о том, что хотим получать уведомления об интенсивности.
+        serverConnection.send(DeviceRequest.ReceiveIntensityUpdates)
+
+        try {
+            // 3. слушаем бесконечно — пока кто-то подписан на эти уведомления
+            awaitCancellation()
+        } finally {
+            // 4. Компенсация шага 1 — отменяем уведомление
+            serverConnection.launch {
+                serverConnection.send(DeviceRequest.CancelIntensityUpdates)
+            }
+        }
+    }.stateIn(serverConnection, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), null)
+
+    override val intensityUpdates: Flow<Double> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
+
+    private val receiverCoroutine = serverConnection.launch { receiveMessages() }
 
     private suspend fun CoroutineScope.receiveMessages(): Nothing {
         while (true) {
-            when (val event = serverConnection.receiveDeserialized<DeviceResponse>()) {
+            when (val event = serverConnection.receive().also { max.post("event: $it") }) {
+                is DeviceResponse.Pong -> receivedPongs.send(event).also { max.post("debug1") }
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
+                is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(event.delta)
             }
         }
     }
@@ -28,13 +62,14 @@ class DeviceAudience(
     override suspend fun shouldPlayNote(note: Note): Boolean = coroutineScope {
         // 1. Начинаем слушать входящие сообщения, там будет ответ на запрос
         val deferredResponse = CompletableDeferred<Boolean>()
-        val oldDeferredResponse = deferredResponses.put(note, deferredResponse)
-        oldDeferredResponse?.cancel()
+        val previousDeferredResponse = deferredResponses.put(note, deferredResponse)
+        // complete(false) вместо cancel(), чтобы не отправлять отмену запроса на сервер
+        previousDeferredResponse?.complete(false)
 
         var requestSent = false
         try {
             // 2. Отправляем запрос
-            serverConnection.sendSerialized<DeviceRequest>(DeviceRequest.AskNote(note))
+            serverConnection.send(DeviceRequest.AskNote(note))
             requestSent = true
 
             // 3. Ждём ответ
@@ -46,7 +81,7 @@ class DeviceAudience(
                 withContext(NonCancellable) {
                     try {
                         max.post("Cancelling note request $note")
-                        serverConnection.sendSerialized<DeviceRequest>(DeviceRequest.CancelNote(note))
+                        serverConnection.send(DeviceRequest.CancelNote(note))
                     } catch (suppressed: Throwable) {
                         ex.addSuppressed(suppressed)
                     }
@@ -71,4 +106,24 @@ class DeviceAudience(
     override fun cancelNote(note: Note) {
         deferredResponses[note]?.cancel()
     }
+}
+
+private fun ServerConnection.launchPinger(
+    pingTimeout: Duration = 3.seconds,
+): Channel<DeviceResponse.Pong> {
+    val receivedPongs = Channel<DeviceResponse.Pong>(capacity = Channel.CONFLATED)
+
+    launch {
+        receivedPongs.consume {
+            while (true) {
+                send(DeviceRequest.Ping)
+                delay(pingTimeout)
+                if (receivedPongs.tryReceive().also { Max.Default.post("debug2, ${receivedPongs}, $it") }.isFailure) {
+                    error("Pong was not received within deadline, exiting")
+                }
+            }
+        }
+    }
+
+    return receivedPongs
 }

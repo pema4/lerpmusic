@@ -7,10 +7,17 @@ import lerpmusic.consensus.SessionPin
 import lerpmusic.website.consensus.device.DeviceRepository
 import lerpmusic.website.consensus.listener.ListenerRepository
 import lerpmusic.website.consensus.session.SessionRepository
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 
 private val config = ConfigFactory.load("lerpmusic.conf")
 private val sessionRepository = SessionRepository(
     sessionPin = SessionPin(config.getString("lerpmusic.consensus.sessionPin")),
+)
+
+private val sessionLauncher = ConsensusSessionLauncher(
+    expectedSessionPin = SessionPin(config.getString("lerpmusic.consensus.sessionPin")),
+    sessionKeepAlive = config.getDuration("lerpmusic.consensus.sessionKeepAliveSeconds", TimeUnit.SECONDS).seconds
 )
 
 private val noteQueue = NoteQueue()
@@ -30,16 +37,18 @@ private val consensusService = ConsensusService(
     noteQueue = noteQueue,
 )
 
-fun Route.consensusRoutes() {
+fun Route.consensusSessionRoutes() {
     route("/consensus/{sessionId}") {
-        deviceSessionRoute(
+        consensusSessionDeviceRoute(
             deviceRepository = deviceRepository,
             consensusService = consensusService,
+            sessionLauncher = sessionLauncher,
         )
 
-        listenerSessionRoute(
+        consensusSessionListenerRoute(
             listenerRepository = listenerRepository,
             consensusService = consensusService,
+            sessionLauncher = sessionLauncher,
         )
     }
 

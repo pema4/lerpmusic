@@ -3,12 +3,12 @@ package lerpmusic.website.consensus
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
-import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.channels.ClosedSendChannelException
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onCompletion
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
@@ -17,12 +17,14 @@ import lerpmusic.website.consensus.device.DeviceRepository
 import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.uuid.Uuid
 
-fun Route.deviceSessionRoute(
+fun Route.consensusSessionDeviceRoute(
     deviceRepository: DeviceRepository,
     consensusService: ConsensusService,
+    sessionLauncher: ConsensusSessionLauncher,
 ) {
-    webSocket("/device/{sessionPin}") {
+    webSocket("/old/device/{sessionPin}") {
         val sessionId = SessionId(call.parameters["sessionId"]!!)
         val sessionPin = SessionPin(call.parameters["sessionPin"]!!)
 
@@ -41,7 +43,7 @@ fun Route.deviceSessionRoute(
                 } catch (ex: Exception) {
                     when (ex) {
                         is CancellationException,
-                        is ClosedSendChannelException,
+//                        is ClosedSendChannelException,
                         is ClosedReceiveChannelException -> {
                             currentCoroutineContext().ensureActive()
                             log.info { "Device session $sessionId is stopped, cause: ${this@webSocket.closeReason}" }
@@ -60,8 +62,36 @@ fun Route.deviceSessionRoute(
             }
         }
     }
+
+    webSocket("/device/{sessionPin}") {
+        val sessionId = SessionId(call.parameters["sessionId"]!!)
+        val sessionPin = SessionPin(call.parameters["sessionPin"]!!)
+
+        flow<Nothing> { awaitCancellation() }
+            .onCompletion { println("cancelled") }
+            .launchIn(this)
+
+        withCallIdInMDC(call.callId) {
+            val session = sessionLauncher.getOrStartSession(sessionId)
+            session.collectLatest { session ->
+                if (session == null) return@collectLatest
+
+                val connection = DeviceConnection(
+                    id = Uuid.random(),
+                    webSocketSession = this@webSocket,
+                )
+                session.addDevice(connection, sessionPin)
+
+                // Отключение от сессии произойдёт при отмене текущей корутины, поэтому просто ждём
+                awaitCancellation()
+            }
+        }
+    }
 }
 
+/**
+ * Уйдёт в [SessionComposition.events]
+ */
 suspend fun Device.processRequests(
     consensusService: ConsensusService,
 ): Nothing {
@@ -81,6 +111,8 @@ suspend fun Device.processRequests(
             is DeviceRequest.ReceiveIntensityUpdates -> TODO()
 
             is DeviceRequest.CancelIntensityUpdates -> TODO()
+
+            DeviceRequest.Ping -> TODO()
         }
     }
 }

@@ -11,38 +11,36 @@ import io.ktor.server.request.*
 import io.ktor.server.response.*
 import io.ktor.server.routing.*
 import io.ktor.server.websocket.*
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.ClosedReceiveChannelException
-import kotlinx.coroutines.channels.ClosedSendChannelException
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import lerpmusic.consensus.SessionId
 import lerpmusic.website.consensus.listener.ListenerRepository
-import lerpmusic.website.consensus.listener.processRequests
 import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import java.awt.image.BufferedImage
 import javax.imageio.ImageIO
+import kotlin.uuid.Uuid
 
 private val log = KotlinLogging.logger {}
 
 private val ApplicationCall.sessionId
     get() = SessionId(parameters["sessionId"]!!)
 
-fun Route.listenerSessionRoute(
+fun Route.consensusSessionListenerRoute(
     listenerRepository: ListenerRepository,
     consensusService: ConsensusService,
+    sessionLauncher: ConsensusSessionLauncher,
 ) {
     get {
-        call
-            .resolveResource("static/consensus.html")
-            ?.let { call.respond(it) }
+        val resource = call.resolveResource("static/consensus.html")!!
+        call.respond(resource)
     }
 
     get("/qr") {
-        call
-            .resolveResource("static/qr.html")
-            ?.let { call.respond(it) }
+        val resource = call.resolveResource("static/qr.html")!!
+        call.respond(resource)
     }
 
     get("/qr-image.png") {
@@ -71,30 +69,18 @@ fun Route.listenerSessionRoute(
         val sessionId = call.sessionId
 
         withCallIdInMDC(call.callId) {
-            listenerRepository.getAndUseListener(
-                sessionId = sessionId,
-                wsSession = this@webSocket,
-            ) { listener ->
-                if (listener == null) {
-                    return@getAndUseListener
-                }
+            val session = sessionLauncher.getSession(sessionId)
+            session.collectLatest { session ->
+                if (session == null) return@collectLatest
 
-                try {
-                    listener.processRequests(consensusService)
-                } catch (ex: Exception) {
-                    when (ex) {
-                        is CancellationException,
-                        is ClosedSendChannelException,
-                        is ClosedReceiveChannelException -> {
-                            log.info { "Device session $sessionId is stopped" }
-                            throw ex
-                        }
+                val connection = ListenerConnection(
+                    id = Uuid.random(),
+                    webSocketSession = this@webSocket,
+                )
+                session.addListener(connection)
 
-                        else -> {
-                            log.error(ex) { "Unexpected error in sessionId $sessionId" }
-                        }
-                    }
-                }
+                // Отключение от сессии произойдёт при отмене текущей корутины, поэтому просто ждём
+                awaitCancellation()
             }
         }
     }

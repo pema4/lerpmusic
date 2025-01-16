@@ -2,10 +2,10 @@ package lerpmusic.website.consensus.device
 
 import io.ktor.server.plugins.callid.*
 import io.ktor.server.websocket.*
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import lerpmusic.consensus.*
-import lerpmusic.website.consensus.device.Device.Id
+import lerpmusic.consensus.DeviceRequest
+import lerpmusic.consensus.DeviceResponse
+import lerpmusic.consensus.Note
+import lerpmusic.consensus.SessionId
 import mu.KotlinLogging
 
 class Device(
@@ -51,27 +51,3 @@ class Device(
 }
 
 private val log = KotlinLogging.logger {}
-
-class Device2(
-    val sessionId: SessionId,
-    private val deviceConnection: WebSocketServerSession,
-) : Composition {
-    private val id = Id(sessionId, deviceConnection.call.callId)
-
-    suspend fun receiveRequest(): DeviceRequest =
-        deviceConnection.receiveDeserialized()
-
-    override val events: Flow<NoteEvent> = flow {
-        while (true) {
-            when (val request = deviceConnection.receiveDeserialized<DeviceRequest>()) {
-                is DeviceRequest.AskNote -> emit(NoteEvent.NoteOn(note = request.note, velocity = 0))
-                is DeviceRequest.CancelNote -> {}
-            }
-        }
-    }
-
-    override suspend fun play(ev: NoteEvent) {
-        deviceConnection.sendSerialized(DeviceResponse.PlayNote(ev.note))
-    }
-}
-

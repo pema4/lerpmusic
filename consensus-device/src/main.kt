@@ -5,11 +5,15 @@ import arrow.core.raise.nullable
 import io.ktor.client.*
 import io.ktor.client.plugins.websocket.*
 import io.ktor.http.*
+import io.ktor.serialization.*
 import io.ktor.serialization.kotlinx.*
+import io.ktor.websocket.*
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
-import lerpmusic.consensus.ConsensusFilter
+import lerpmusic.consensus.Consensus
+import lerpmusic.consensus.DeviceRequest
+import lerpmusic.consensus.DeviceResponse
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -18,11 +22,14 @@ private val max: Max = Max
 private val httpClient = HttpClient {
     install(WebSockets) {
         contentConverter = KotlinxWebsocketSerializationConverter(Json)
+        // Как будто бы не работает в Kotlin/JS
         pingInterval = 15.seconds
     }
 }
 
-fun main(vararg args: String) = SuspendApp {
+@OptIn(ExperimentalCoroutinesApi::class)
+fun main() = SuspendApp {
+    // inlet() sends null before emitting actual messages
     val serverHost: Flow<String?> = max.inlet("serverHost")
         .map { it?.toString()?.takeIf { it.isNotBlank() } }
         .stateIn(this)
@@ -35,39 +42,54 @@ fun main(vararg args: String) = SuspendApp {
         .map { it?.toString()?.takeIf { it.isNotBlank() } }
         .stateIn(this)
 
-    val configuration = combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
-        nullable {
-            ServerConnectionConfig(
-                host = serverHost.bind(),
-                sessionId = sessionId.bind(),
-                sessionPin = sessionPin.bind(),
-            )
+    val isIntensityRequested: Flow<Boolean> = max.inlet("intensity")
+        .map { it?.toString()?.toInt() ?: 0 }
+        .map { it != 0 }
+        .stateIn(this)
+
+    val configuration: Flow<ServerConnectionConfig?> =
+        combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
+            nullable {
+                ServerConnectionConfig(
+                    host = serverHost.bind(),
+                    sessionId = sessionId.bind(),
+                    sessionPin = sessionPin.bind(),
+                )
+            }
         }
-    }
 
     configuration
         .onStart { max.outlet("status", "initialized") }
         .collectLatest { configuration ->
             max.post("Restarting with configuration: $configuration")
-            if (configuration == null) return@collectLatest
-            withRetries {
-                openServerConnection(configuration) { serverConnection ->
-                    val consensus = ConsensusFilter(
-                        composition = DeviceComposition(max),
-                        audience = DeviceAudience(serverConnection, max)
-                    )
-                    max.outlet("status", "running")
-                    consensus.filterCompositionEvents()
-                }
-            }
+            if (configuration != null) mainLoop(configuration, isIntensityRequested)
         }
 }
 
-private suspend fun withRetries(
-    retryAfter: Duration = 2.seconds,
-    block: suspend CoroutineScope.() -> Unit,
+private suspend fun mainLoop(
+    configuration: ServerConnectionConfig,
+    isIntensityRequested: Flow<Boolean>,
 ) {
-    flow<Nothing> { coroutineScope { block() } }
+    withRetries {
+        openServerConnection(configuration) { serverConnection ->
+            val consensus = Consensus(
+                composition = DeviceComposition(max, isIntensityRequested),
+                audience = DeviceAudience(serverConnection, max)
+            )
+
+            launch { consensus.filterCompositionEvents() }
+            launch { consensus.receiveIntensityUpdates() }
+
+            max.outlet("status", "running")
+        }
+    }
+}
+
+private suspend fun <T> withRetries(
+    retryAfter: Duration = 2.seconds,
+    block: suspend CoroutineScope.() -> T,
+): T {
+    return flow { emit(coroutineScope { block() }) }
         .catch { ex ->
             max.outlet("status", "stopped")
             max.post("Got exception $ex")
@@ -79,9 +101,10 @@ private suspend fun withRetries(
             withContext(NonCancellable) {
                 max.outlet("status", "stopped")
                 max.post("Disconnected from the server")
+                it?.printStackTrace()
             }
         }
-        .collect()
+        .first()
 }
 
 data class ServerConnectionConfig(
@@ -90,9 +113,17 @@ data class ServerConnectionConfig(
     val sessionPin: String,
 )
 
+class ServerConnection(
+    private val webSocketSession: DefaultClientWebSocketSession,
+    private val coroutineScope: CoroutineScope,
+) : CoroutineScope by coroutineScope {
+    suspend fun send(data: DeviceRequest): Unit = webSocketSession.sendSerialized(data)
+    suspend fun receive(): DeviceResponse = webSocketSession.receiveDeserialized()
+}
+
 private suspend fun openServerConnection(
     config: ServerConnectionConfig,
-    block: suspend CoroutineScope.(serverConnection: DefaultClientWebSocketSession) -> Unit,
+    block: suspend CoroutineScope.(serverConnection: ServerConnection) -> Unit,
 ) {
     val url = buildUrl {
         protocol = if ("localhost" in config.host) {
@@ -108,11 +139,21 @@ private suspend fun openServerConnection(
     try {
         if (url.protocol == URLProtocol.WSS) {
             httpClient.wss(url.toString()) {
-                coroutineScope { block(this@wss) }
+                try {
+                    coroutineScope { block(ServerConnection(this@wss, this)) }
+                } catch (ex: WebsocketDeserializeException) {
+                    if (ex.frame !is Frame.Close) throw ex
+                }
             }
         } else {
             httpClient.ws(url.toString()) {
-                coroutineScope { block(this@ws) }
+                try {
+                    coroutineScope { block(ServerConnection(this@ws, this)) }
+
+                } catch (ex: WebsocketDeserializeException) {
+                    if (ex.frame !is Frame.Close) throw ex
+                }
+
             }
         }
     } finally {

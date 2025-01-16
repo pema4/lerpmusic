@@ -1,6 +1,5 @@
 package lerpmusic.consensus
 
-import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 /**
@@ -9,8 +8,13 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed class ListenerRequest {
     @Serializable
-    @SerialName("Action")
     data object Action : ListenerRequest()
+
+    @Serializable
+    data object IncreaseIntensity : ListenerRequest()
+
+    @Serializable
+    data object DecreaseIntensity : ListenerRequest()
 }
 
 /**
@@ -19,10 +23,14 @@ sealed class ListenerRequest {
 @Serializable
 sealed class ListenerResponse {
     @Serializable
-    @SerialName("AskForAction")
     data object AskForAction : ListenerResponse()
 
     @Serializable
-    @SerialName("Cancel")
     data object Cancel : ListenerResponse()
+
+    @Serializable
+    data object ReceiveIntensityUpdates : ListenerResponse()
+
+    @Serializable
+    data object CancelIntensityUpdates : ListenerResponse()
 }

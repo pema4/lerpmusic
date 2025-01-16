@@ -9,6 +9,7 @@ import lerpmusic.consensus.NoteEvent
 
 class DeviceComposition(
     private val max: Max,
+    override val isIntensityRequested: Flow<Boolean>,
 ) : Composition {
     override val events: Flow<NoteEvent> =
         max.inlet3("midiin")
@@ -31,5 +32,9 @@ class DeviceComposition(
             is NoteEvent.NoteOff ->
                 max.outlet("midiout", ev.note.channel, ev.note.pitch, 0)
         }
+    }
+
+    override suspend fun updateIntensity(delta: Double) {
+        max.outlet("intensity", delta)
     }
 }

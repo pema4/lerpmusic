@@ -1,20 +1,20 @@
 package lerpmusic.consensus
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import lerpmusic.consensus.utils.conflateDelta
 
 /**
- * Алгоритм по фильтрации нот, используемый в композиции.
+ * Алгоритм интерактивной композиции.
  */
-class ConsensusFilter(
+class Consensus(
     val composition: Composition,
     val audience: Audience,
 ) {
     suspend fun filterCompositionEvents() = supervisorScope {
-        val mutex = Mutex()
+        // без синхронизации, Kotlin/JS однопоточный
         val playingNotes = mutableSetOf<Note>()
 
         composition.events.collect { event ->
@@ -22,7 +22,7 @@ class ConsensusFilter(
                 is NoteEvent.NoteOn -> {
                     launch {
                         if (audience.shouldPlayNote(event.note)) {
-                            mutex.withLock { playingNotes += event.note }
+                            playingNotes += event.note
                             composition.play(event)
                         }
                     }
@@ -31,11 +31,30 @@ class ConsensusFilter(
                 is NoteEvent.NoteOff -> {
                     audience.cancelNote(event.note)
 
-                    val wasPlaying = mutex.withLock { playingNotes.remove(event.note) }
+                    val wasPlaying = playingNotes.remove(event.note)
                     if (wasPlaying) {
                         launch { composition.play(event) }
                     }
                 }
+            }
+        }
+
+        // В идеале должно быть так
+//        composition.events.collect { event ->
+//            launch {
+//                if (audience.shouldPlayNote(event.note)) {
+//                    composition.play(event)
+//                }
+//            }
+//        }
+    }
+
+    suspend fun receiveIntensityUpdates() {
+        composition.isIntensityRequested.collectLatest { requested ->
+            if (requested) {
+                audience.intensityUpdates
+                    .conflateDelta()
+                    .collect { composition.updateIntensity(it) }
             }
         }
     }
@@ -58,17 +77,14 @@ interface Composition {
     suspend fun play(ev: NoteEvent)
 
     /**
-     * Воспроизвести событие, полученное из [events].
+     * Нужно ли запрашивать [Audience.intensityUpdates].
      */
-    suspend fun modulateIntensity(intensity: Double)
+    val isIntensityRequested: Flow<Boolean>
+
+    suspend fun updateIntensity(delta: Double)
 }
 
 interface Audience {
-    /**
-     * Изменения интенсивности
-     */
-    val intensityDeltaUpdates: Flow<Double>
-
     /**
      * Спросить слушателей, нужно ли проиграть ноту.
      */
@@ -78,4 +94,9 @@ interface Audience {
      * Отменить запрос на проигрывание ноты, запущенный через [shouldPlayNote].
      */
     fun cancelNote(note: Note)
+
+    /**
+     * Изменения интенсивности
+     */
+    val intensityUpdates: Flow<Double>
 }
