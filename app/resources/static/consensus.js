@@ -1,83 +1,138 @@
-let socket;
-let askingForAction;
+let askingForAction = false
+const actionWrapper = document.getElementById("action-wrapper")
+const actionButton = document.getElementById("action-button")
 
-let wrapper = document.getElementById("consensus-wrapper");
-let text = document.getElementById("consensus-text");
+let askingForIntensity = false
+const intensityWrapper = document.getElementById('intensity-wrapper')
+const increaseIntensityButton = document.getElementById("increase-intensity")
+const decreaseIntensityButton = document.getElementById("decrease-intensity")
 
-function pointerdownListener() {
+function toggleIntensityWrapperVisibility(visible) {
+    if (visible) {
+        intensityWrapper.classList.remove('hidden')
+    } else if (!intensityWrapper.classList.contains('hidden')) {
+        intensityWrapper.classList.add('hidden')
+    }
+}
+
+function toggleActionWrapperVisibility(visible) {
+    if (actionWrapper.style.display === 'none') {
+        actionWrapper.style.display = 'flex';
+    } else {
+        actionWrapper.style.display = 'none';
+    }
+}
+
+// Вебсокеты
+
+let socket
+function actionPointerdownListener() {
     if (askingForAction) {
-        const msg = {type: "Action"};
-        socket.send(JSON.stringify(msg));
+        const msg = { type: "Action" }
+        socket.send(JSON.stringify(msg))
     }
 }
 
 function clickListener() {
 }
 
+function intensityButtonClickListener() {
+    if (askingForIntensity) {
+        let type
+        if (this === increaseIntensityButton) {
+            type = "IncreaseIntensity"
+        } else if (this === decreaseIntensityButton) {
+            type = "DecreaseIntensity"
+        }
+
+        const msg = { type: "Action" }
+        socket.send(JSON.stringify(msg))
+    }
+}
+
 function openConnection() {
-    let href = window.location.href;
+    let href = window.location.href
     let socketUrl = href
         .replace(/https/, 'wss')
         .replace(/http/, 'ws')
         .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
-    socket = new WebSocket(socketUrl);
+    socket = new WebSocket(socketUrl)
 
-    askingForAction = false;
-    text.hidden = true;
+    askingForAction = false
+    actionButton.hidden = true
+    askingForIntensity = false
 
     socket.addEventListener('open', () => {
-        wrapper.addEventListener("pointerdown", pointerdownListener, false);
-        wrapper.addEventListener("click", clickListener, false);
-    });
+        actionWrapper.addEventListener("pointerdown", actionPointerdownListener, false)
+        actionWrapper.addEventListener("click", clickListener, false)
+        increaseIntensityButton.addEventListener("click", intensityButtonClickListener, false)
+        decreaseIntensityButton.addEventListener("click", intensityButtonClickListener, false)
+    })
 
     socket.addEventListener('close', () => {
-        askingForAction = false;
-        text.hidden = true;
+        askingForAction = false
+        actionButton.hidden = true
 
-        setTimeout(tryOpenConnection, 500);
+        setTimeout(tryOpenConnection, 500)
 
-        wrapper.removeEventListener("pointerdown", pointerdownListener, false);
-        wrapper.removeEventListener("click", clickListener, false);
-    });
+        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
+        actionWrapper.removeEventListener("click", clickListener, false)
+        increaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+        decreaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+    })
 
     socket.addEventListener('message', (event) => {
-        const msg = JSON.parse(event.data);
-        console.log('Message from server ', event.data);
+        const msg = JSON.parse(event.data)
+        console.log('Message from server ', event.data)
 
         switch (msg.type) {
             case "AskForAction":
-                askingForAction = true;
-                text.hidden = false;
-                break;
+                askingForAction = true
+                actionButton.hidden = false
+                break
 
             case "Cancel":
-                askingForAction = false;
-                text.hidden = true;
-                break;
-        }
-    });
+                askingForAction = false
+                actionButton.hidden = true
+                break
+
+            case "ReceiveIntensityUpdates":
+                toggleIntensityWrapperVisibility(true)
+                toggleActionWrapperVisibility(false)
+                break
+
+            case "CancelIntensityUpdates":
+                toggleIntensityWrapperVisibility(false)
+                toggleActionWrapperVisibility(true)
+                break
+        };
+    })
 
     socket.addEventListener('error', () => {
-        wrapper.removeEventListener("pointerdown", pointerdownListener, false);
-        wrapper.removeEventListener("click", clickListener, false);
-        askingForAction = false;
-        text.hidden = true;
-    });
+        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
+        actionWrapper.removeEventListener("click", clickListener, false)
+        increaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+        decreaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+
+        askingForAction = false
+        actionButton.hidden = true
+        askingForIntensity = false
+    })
 }
 
 function tryOpenConnection() {
     try {
-        openConnection();
+        openConnection()
     } catch (e) {
-        console.error(e);
+        console.error(e)
         if (!!socket) {
             socket.close()
         }
-        askingForAction = false;
-        text.hidden = true;
-        wrapper.removeEventListener("pointerdown", pointerdownListener, false);
-        wrapper.removeEventListener("click", clickListener, false);
-        setTimeout(tryOpenConnection, 500);
+        askingForAction = false
+        actionButton.hidden = true
+        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
+        actionWrapper.removeEventListener("click", clickListener, false)
+        setTimeout(tryOpenConnection, 500)
     }
 }
 

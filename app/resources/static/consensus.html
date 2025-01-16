@@ -1,17 +1,36 @@
-<html lang="EN">
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Live</title>
 </head>
 
-<link href="/static/consensus.css" rel="stylesheet" type="text/css"/>
-<script src="/static/consensus.js" defer></script>
+<link href="consensus.css" rel="stylesheet" type="text/css"/>
+<script src="consensus.js" defer></script>
 
 <body>
-<div id="consensus-wrapper">
-    <p id="consensus-text" hidden="hidden">
-        ⋯
-    </p>
-</div>
+    <div id="action-wrapper" style="display: none">
+        <p id="action-button" class="button-text">
+            ⋯
+        </p>
+    </div>
+
+    <div id="intensity-wrapper">
+        <button id="increase-button" aria-label="Increase">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="bevel" stroke-linejoin="bevel">
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+        </button>
+
+        <button id="decrease-button" aria-label="Decrease">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="bevel" stroke-linejoin="bevel">
+                <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+        </button>
+    </div>
 </body>
+
 </html>
