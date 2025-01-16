@@ -9,7 +9,7 @@ import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.Note
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class DeviceAudience(
     private val serverConnection: ServerConnection,
@@ -108,8 +108,7 @@ class DeviceAudience(
 }
 
 private fun ServerConnection.launchPinger(
-    // TODO: для дебага таймаут небольшой
-    pingTimeout: Duration = 30.minutes,
+    pingTimeout: Duration = 10.seconds,
 ): Channel<DeviceResponse.Pong> {
     val receivedPongs = Channel<DeviceResponse.Pong>(capacity = Channel.CONFLATED)
 
