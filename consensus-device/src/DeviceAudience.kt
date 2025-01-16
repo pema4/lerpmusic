@@ -51,8 +51,8 @@ class DeviceAudience(
 
     private suspend fun CoroutineScope.receiveMessages(): Nothing {
         while (true) {
-            when (val event = serverConnection.receive().also { max.post("event: $it") }) {
-                is DeviceResponse.Pong -> receivedPongs.send(event).also { max.post("debug1") }
+            when (val event = serverConnection.receive()) {
+                is DeviceResponse.Pong -> receivedPongs.send(event)
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
                 is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(event.delta)
             }
@@ -80,7 +80,6 @@ class DeviceAudience(
             if (requestSent) {
                 withContext(NonCancellable) {
                     try {
-                        max.post("Cancelling note request $note")
                         serverConnection.send(DeviceRequest.CancelNote(note))
                     } catch (suppressed: Throwable) {
                         ex.addSuppressed(suppressed)
@@ -118,7 +117,7 @@ private fun ServerConnection.launchPinger(
             while (true) {
                 send(DeviceRequest.Ping)
                 delay(pingTimeout)
-                if (receivedPongs.tryReceive().also { Max.Default.post("debug2, ${receivedPongs}, $it") }.isFailure) {
+                if (receivedPongs.tryReceive().isFailure) {
                     error("Pong was not received within deadline, exiting")
                 }
             }

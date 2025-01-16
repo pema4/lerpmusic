@@ -109,18 +109,16 @@ class SessionDevice(
     private val _isIntensityRequested = MutableStateFlow(false)
     override val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
-    suspend fun receiveMessages() {
-        when (val event = connection.receive()) {
-            DeviceRequest.Ping -> connection.send(DeviceResponse.Pong)
-//            is DeviceResponse.Pong -> receivedPongs.send(event)
-//            is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
-//            is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(event.delta)
-            is DeviceRequest.AskNote -> {}
-            is DeviceRequest.CancelNote -> {}
-            DeviceRequest.ReceiveIntensityUpdates -> _isIntensityRequested.value = true
-            DeviceRequest.CancelIntensityUpdates -> _isIntensityRequested.value = false
+    suspend fun receiveMessages(): Nothing {
+        while (true) {
+            when (val event = connection.receive()) {
+                DeviceRequest.Ping -> connection.send(DeviceResponse.Pong)
+                is DeviceRequest.AskNote -> {}
+                is DeviceRequest.CancelNote -> {}
+                DeviceRequest.ReceiveIntensityUpdates -> _isIntensityRequested.value = true
+                DeviceRequest.CancelIntensityUpdates -> _isIntensityRequested.value = false
+            }
         }
-        connection.receive()
     }
 
     override val events: Flow<NoteEvent>
