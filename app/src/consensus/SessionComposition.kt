@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.runningSetDifference
 import mu.KotlinLogging
+import kotlin.math.sign
 import kotlin.uuid.Uuid
 
 class SessionComposition(
@@ -40,25 +41,28 @@ class SessionComposition(
 
     private val intensityRequestedCount: Flow<Int> = channelFlow {
         activeDevices.collectEachAddedDevice { device ->
-            // Для перехода false -> true возвращаем 1, для true -> false - 0
+            // Для перехода false -> true возвращаем 1, для true -> false - -1
             // [false, true, false, true] -> [0, 1, -1, 1]
             // [true, false, true] -> [0, 1, -1, 1]
-            // TODO: когда девайс уходит, для него надо отправить 0
+            var previous = false
             device.isIntensityRequested
-                .onSubscription { emit(false) }
-                .map { if (it) 1 else 0 }
-                .runningReduce { prev, next -> next - prev }
-                .collect { this@channelFlow.send(it) }
+                .onCompletion { if (previous) send(-1) }
+                .collect { requested ->
+                    val delta = (requested compareTo previous).sign
+                    previous = requested
+                    send(delta)
+                }
         }
-    }
+    }.runningFold(0, Int::plus)
+        .onEach { log.info { "intensityRequestedCount: $it" } }
 
     /**
      * Нужно ли запрашивать [Audience.intensityUpdates].
      */
     override val isIntensityRequested: Flow<Boolean> =
         intensityRequestedCount
-            .runningFold(0, Int::plus)
             .map { it > 0 }
+            .distinctUntilChanged()
 
     override suspend fun updateIntensity(delta: Double) {
         val jobs = activeDevices.value.map { device ->

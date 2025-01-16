@@ -78,12 +78,13 @@ fun main() = SuspendApp {
                         max.outlet("status", "running")
                     }
                 }
+                delay(RETRY_TIMEOUT)
             }
         }
 }
 
 private suspend fun withRetries(
-    retryAfter: Duration = 2.seconds,
+    retryAfter: Duration = RETRY_TIMEOUT,
     block: suspend CoroutineScope.() -> Unit,
 ) {
     return flow { emit(coroutineScope { block() }) }
@@ -155,3 +156,5 @@ private suspend fun openServerConnection(
         max.post("Closing websocket connection to $url")
     }
 }
+
+private val RETRY_TIMEOUT = 2.seconds
