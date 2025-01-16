@@ -44,55 +44,25 @@ class ConsensusSessionLauncher(
     private val coroutineScope: CoroutineScope = CoroutineScope(Job())
     private val expectedIds = (10..14).map { SessionId(it.toString()) }
 
-    private sealed class SessionLifecycleEvent {
-        data class CanBeStarted(val start: () -> Unit) : SessionLifecycleEvent()
-        data class Changed(val session: ConsensusSession?) : SessionLifecycleEvent()
-    }
-
-    private val sessions = ConcurrentHashMap<SessionId, StateFlow<SessionLifecycleEvent>>()
-
-    private fun createSessionCoroutineScope() = CoroutineScope(SupervisorJob()) +
-            CoroutineExceptionHandler { _, ex ->
-                log.error(ex) { "Can't send response in background" }
-            }
-
-    /**
-     * Возвращает [ConsensusSession], если сессия активна, или null, если нет.
-     */
-    fun getSession(id: SessionId): Flow<ConsensusSession?> =
-        getOrStartSessionImpl(id)
-            .filterIsInstance<SessionLifecycleEvent.Changed>()
-            .map { it.session }
+    private val sessions = ConcurrentHashMap<SessionId, SharedFlow<ConsensusSession>>()
 
     /**
      * Возвращает [ConsensusSession], когда она стартует, если сессии нет — создаёт её.
      *
      * Сессия активна, пока выполняется возвращаемый [Flow].
      */
-    fun getOrStartSession(id: SessionId): Flow<ConsensusSession?> =
-        getOrStartSessionImpl(id)
-            .onEach { if (it is SessionLifecycleEvent.CanBeStarted) it.start() }
-            .filterIsInstance<SessionLifecycleEvent.Changed>()
-            .map { it.session }
-
-    private fun getOrStartSessionImpl(
-        id: SessionId,
-    ): Flow<SessionLifecycleEvent> {
+    fun getSession(id: SessionId): Flow<ConsensusSession> {
         if (id !in expectedIds) return emptyFlow()
 
         val deferredSession = sessions.getOrPut(id) {
-            val launchSession: Flow<SessionLifecycleEvent> = flow {
-                val started = CompletableDeferred<Unit>()
-                emit(SessionLifecycleEvent.CanBeStarted(start = { started.complete(Unit) }))
-                started.await()
-
+            val launchSession: Flow<ConsensusSession> = flow {
                 coroutineScope {
                     val session = ConsensusSession(
                         id = id,
                         expectedPin = expectedSessionPin,
                         coroutineScope = this,
                     )
-                    emit(SessionLifecycleEvent.Changed(session))
+                    emit(session)
 
                     log.info("Session $id started: $session")
                     awaitCancellation()
@@ -102,7 +72,6 @@ class ConsensusSessionLauncher(
             launchSession
                 .retryWhen { ex, attempts ->
                     log.error(ex) { "Session $id exited unexpectedly, retry attempt #${attempts + 1}" }
-                    emit(SessionLifecycleEvent.Changed(null))
                     true
                 }
                 .onCompletion {
@@ -110,13 +79,13 @@ class ConsensusSessionLauncher(
                     log.info("Session $id completed successfully")
                     sessions.remove(id)
                 }
-                .stateIn(
+                .shareIn(
                     scope = coroutineScope,
                     started = SharingStarted.WhileSubscribed(
                         stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
                         replayExpirationMillis = 0,
                     ),
-                    initialValue = SessionLifecycleEvent.Changed(null),
+                    replay = 1,
                 )
         }
 

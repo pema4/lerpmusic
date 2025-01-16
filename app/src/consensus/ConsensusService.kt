@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.Note
 import lerpmusic.consensus.SessionId
 import lerpmusic.website.consensus.device.Device
@@ -100,5 +101,33 @@ class ConsensusService(
         sessionId: SessionId,
     ): Boolean {
         return noteQueue.hasEnqueuedNotes(sessionId)
+    }
+}
+
+/**
+ * Уйдёт в [SessionComposition.events]
+ */
+suspend fun Device.processRequests(
+    consensusService: ConsensusService,
+): Nothing {
+    while (true) {
+        val request = receiveRequest()
+//        log.debug { "Received DeviceRequest $request from ${this@processRequests}" }
+
+        when (request) {
+            is DeviceRequest.AskNote -> {
+                consensusService.askNote(this, request.note)
+            }
+
+            is DeviceRequest.CancelNote -> {
+                consensusService.cancelNote(this, request.note)
+            }
+
+            is DeviceRequest.ReceiveIntensityUpdates -> TODO()
+
+            is DeviceRequest.CancelIntensityUpdates -> TODO()
+
+            DeviceRequest.Ping -> TODO()
+        }
     }
 }
