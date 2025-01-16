@@ -4,8 +4,8 @@ const actionButton = document.getElementById("action-button")
 
 let askingForIntensity = false
 const intensityWrapper = document.getElementById('intensity-wrapper')
-const increaseIntensityButton = document.getElementById("increase-intensity")
-const decreaseIntensityButton = document.getElementById("decrease-intensity")
+const increaseIntensityButton = document.getElementById("increase-button")
+const decreaseIntensityButton = document.getElementById("decrease-button")
 
 function toggleIntensityWrapperVisibility(visible) {
     if (visible) {
@@ -45,8 +45,7 @@ function intensityButtonClickListener() {
             type = "DecreaseIntensity"
         }
 
-        const msg = { type: "Action" }
-        socket.send(JSON.stringify(msg))
+        socket.send(JSON.stringify({ type }))
     }
 }
 
@@ -97,11 +96,13 @@ function openConnection() {
                 break
 
             case "ReceiveIntensityUpdates":
+                askingForIntensity = true
                 toggleIntensityWrapperVisibility(true)
                 toggleActionWrapperVisibility(false)
                 break
 
             case "CancelIntensityUpdates":
+                askingForIntensity = true
                 toggleIntensityWrapperVisibility(false)
                 toggleActionWrapperVisibility(true)
                 break
@@ -113,6 +114,9 @@ function openConnection() {
         actionWrapper.removeEventListener("click", clickListener, false)
         increaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
         decreaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+
+        toggleIntensityWrapperVisibility(false)
+        toggleActionWrapperVisibility(true)
 
         askingForAction = false
         actionButton.hidden = true

@@ -1,6 +1,8 @@
 package lerpmusic.website.consensus
 
-import io.ktor.server.websocket.*
+import io.ktor.server.websocket.WebSocketServerSession
+import io.ktor.server.websocket.receiveDeserialized
+import io.ktor.server.websocket.sendSerialized
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
@@ -68,8 +70,9 @@ class SessionComposition(
         val jobs = activeDevices.value.map { device ->
             device.connection.launch { device.updateIntensity(delta) }
         }
-        currentCoroutineContext().job.invokeOnCompletion { jobs.forEach { it.cancel() } }
+        val handler = currentCoroutineContext().job.invokeOnCompletion { jobs.forEach { it.cancel() } }
         jobs.joinAll()
+        handler.dispose()
     }
 
     private suspend fun StateFlow<List<SessionDevice>>.collectEachAddedDevice(
