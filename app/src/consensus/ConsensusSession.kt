@@ -2,13 +2,14 @@ package lerpmusic.website.consensus
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.slf4j.MDCContext
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
 import lerpmusic.consensus.launchConsensus
 import mu.KotlinLogging
+import org.slf4j.MDC
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
@@ -42,7 +43,7 @@ class ConsensusSessionLauncher(
     private val expectedSessionPin: SessionPin,
     private val sessionKeepAlive: Duration = 15.seconds
 ) {
-    private val coroutineScope: CoroutineScope = CoroutineScope(Job())
+    private val launcherScope: CoroutineScope = CoroutineScope(Job())
     private val expectedIds = (10..14).map { SessionId(it.toString()) }
 
     private val sessions = ConcurrentHashMap<SessionId, StateFlow<ConsensusSession?>>()
@@ -57,7 +58,7 @@ class ConsensusSessionLauncher(
     fun getSession(id: SessionId): Flow<ConsensusSession?> {
         if (id !in expectedIds) return emptyFlow()
 
-        val deferredSession = sessions.getOrPut(id) {
+        val session = sessions.computeIfAbsent(id) {
             val launchSession: Flow<ConsensusSession?> = flow {
                 coroutineScope {
                     val session = ConsensusSession(
@@ -66,25 +67,23 @@ class ConsensusSessionLauncher(
                         coroutineScope = this,
                     )
                     emit(session)
-
-                    log.info("Session $id started: $session")
-                    awaitCancellation()
                 }
             }
 
             launchSession
+                .onEach { log.info("Session started") }
                 .retryWhen { ex, attempts ->
-                    log.warn(ex) { "Session $id exited unexpectedly on attempt #$attempts" }
+                    log.warn(ex) { "Session exited unexpectedly on attempt #$attempts, retrying..." }
                     emit(null)
                     true
                 }
                 .onCompletion {
-                    // TODO: надо завершать сессию, когда отключатся все девайсы
-                    log.info("Session $id completed successfully")
-                    sessions.remove(id)
+                    log.info("Session completed successfully")
+                    sessions -= id
                 }
+                .flowOn(MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")))
                 .stateIn(
-                    scope = coroutineScope,
+                    scope = launcherScope,
                     started = SharingStarted.WhileSubscribed(
                         stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
                         replayExpirationMillis = 0,
@@ -93,7 +92,7 @@ class ConsensusSessionLauncher(
                 )
         }
 
-        return deferredSession
+        return session
     }
 }
 

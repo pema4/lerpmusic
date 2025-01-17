@@ -6,7 +6,7 @@ import io.ktor.server.websocket.sendSerialized
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
-import lerpmusic.consensus.utils.runningSetDifference
+import lerpmusic.consensus.utils.collectAddedInChildCoroutine
 import mu.KotlinLogging
 import kotlin.math.sign
 import kotlin.uuid.Uuid
@@ -19,7 +19,7 @@ class SessionComposition(
 
     init {
         coroutineScope.launch {
-            activeDevices.collectEachAddedDevice { it.receiveMessages() }
+            activeDevices.collectAddedInChildCoroutine { it.receiveMessages() }
         }
     }
 
@@ -58,7 +58,7 @@ class SessionComposition(
     }
 
     private val intensityRequestedCount: Flow<Int> = channelFlow {
-        activeDevices.collectEachAddedDevice { device ->
+        activeDevices.collectAddedInChildCoroutine { device ->
             // Для перехода false -> true возвращаем 1, для true -> false - -1
             // [false, true, false, true] -> [0, 1, -1, 1]
             // [true, false, true] -> [0, 1, -1, 1]
@@ -93,45 +93,11 @@ class SessionComposition(
             jobs.forEach { it.cancel() }
         }
     }
-
-    private suspend fun StateFlow<List<SessionDevice>>.collectEachAddedDevice(
-        block: suspend CoroutineScope.(SessionDevice) -> Unit,
-    ) {
-        // TODO: как лучше всего отменять дочерние корутины при отмене выполнения collectEachAddedDevice?
-        //  В наивном варианте с invokeOnCompletion будет утекать память:
-        //  val newJobs = devices.added.map { device ->
-        //      device.connection.launch { block(device) }
-        //  }
-        //  currentCoroutineContext().job.invokeOnCompletion { cause ->
-        //      newJobs.forEach { it.cancel() }
-        //  }
-        val launchedJobs = mutableMapOf<SessionDevice, Job>()
-
-        runningSetDifference()
-            .onEach { devices ->
-                for (device in devices.added) {
-                    launchedJobs[device] = device.connection.launch { block(device) }
-                }
-
-                // эти джобы отменятся сами
-                for (device in devices.removed) {
-                    launchedJobs.remove(device)
-                }
-            }
-            .onCompletion { cause ->
-                launchedJobs.values.forEach {
-                    it.cancel("collectEachAddedDevice cancelled", cause)
-                }
-            }
-            .collect()
-
-        error("Unreachable, should run forever")
-    }
 }
 
 class SessionDevice(
     val connection: DeviceConnection,
-) : Composition {
+) : Composition, CoroutineScope by connection {
     private val _isIntensityRequested = MutableStateFlow(false)
     override val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
@@ -152,7 +118,9 @@ class SessionDevice(
     }
 
     override suspend fun updateListenersCount(count: Int) {
-        connection.send(DeviceResponse.ListenersCount(count))
+        if (isListenersCountRequested.value) {
+            connection.send(DeviceResponse.ListenersCount(count))
+        }
     }
 
     override val events: Flow<NoteEvent>

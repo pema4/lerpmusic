@@ -6,7 +6,8 @@ import io.ktor.server.websocket.sendSerialized
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
-import lerpmusic.consensus.utils.runningSetDifference
+import lerpmusic.consensus.utils.collectAddedInChildCoroutine
+import lerpmusic.consensus.utils.flatMapMergeAddedInChildCoroutine
 import kotlin.uuid.Uuid
 
 /**
@@ -16,11 +17,11 @@ class SessionAudience(
     private val coroutineScope: CoroutineScope,
 ) : Audience {
     private val activeListeners: MutableStateFlow<List<SessionListener>> = MutableStateFlow(emptyList())
-    override val listenersCount: Flow<Int> = activeListeners.map { it.size }
+    override val listenersCount: Flow<Int> = activeListeners.map { it.size }.distinctUntilChanged()
 
     init {
         coroutineScope.launch {
-            activeListeners.collectEachAddedListener { it.receiveMessages() }
+            activeListeners.collectAddedInChildCoroutine { it.receiveMessages() }
         }
     }
 
@@ -46,11 +47,8 @@ class SessionAudience(
         }
     }
 
-    override val intensityUpdates: Flow<IntensityUpdate> = channelFlow {
-        activeListeners.collectEachAddedListener { listener ->
-            listener.intensityUpdates.collect { send(it) }
-        }
-    }
+    override val intensityUpdates: Flow<IntensityUpdate> =
+        activeListeners.flatMapMergeAddedInChildCoroutine { it.intensityUpdates }
 
     override suspend fun shouldPlayNote(note: Note): Boolean {
         TODO("Not yet implemented")
@@ -59,40 +57,6 @@ class SessionAudience(
     override fun cancelNote(note: Note) {
         TODO("Not yet implemented")
     }
-
-    private suspend fun StateFlow<List<SessionListener>>.collectEachAddedListener(
-        block: suspend CoroutineScope.(SessionListener) -> Unit,
-    ): Nothing {
-        // TODO: как лучше всего отменять дочерние корутины при отмене выполнения collectEachAddedListener?
-        //  В наивном варианте с invokeOnCompletion будет утекать память:
-        //  val newJobs = listeners.added.map { listener ->
-        //      listener.connection.launch { block(listener) }
-        //  }
-        //  currentCoroutineContext().job.invokeOnCompletion { cause ->
-        //      newJobs.forEach { it.cancel() }
-        //  }
-        val launchedJobs = mutableMapOf<SessionListener, Job>()
-
-        runningSetDifference()
-            .onEach { listeners ->
-                for (listener in listeners.added) {
-                    launchedJobs[listener] = listener.connection.launch { block(listener) }
-                }
-
-                // эти джобы отменятся сами
-                for (listener in listeners.removed) {
-                    launchedJobs.remove(listener)
-                }
-            }
-            .onCompletion { cause ->
-                launchedJobs.values.forEach {
-                    it.cancel("collectEachAddedListener cancelled", cause)
-                }
-            }
-            .collect()
-
-        error("Unreachable, should run forever")
-    }
 }
 
 /**
@@ -100,7 +64,7 @@ class SessionAudience(
  */
 private class SessionListener(
     val connection: ListenerConnection,
-) : Audience {
+) : Audience, CoroutineScope by connection {
     override val listenersCount: Flow<Int> = flowOf(1)
 
     /**

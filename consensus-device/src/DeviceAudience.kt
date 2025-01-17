@@ -2,6 +2,7 @@ package lerpmusic.consensus.device
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.consume
 import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
@@ -13,9 +14,9 @@ class DeviceAudience(
     private val max: Max,
 ) : Audience {
     private val deferredResponses = mutableMapOf<Note, CompletableDeferred<Boolean>>()
-    private val receivedPongs = serverConnection.launchPinger()
-    private val receivedListenersCount = MutableStateFlow<Int>(0)
+    private val receivedPongs = serverConnection.producePings()
 
+    private val receivedListenersCount = MutableStateFlow<Int>(0)
     override val listenersCount: Flow<Int> = receivedListenersCount.asStateFlow()
 
     /**
@@ -105,7 +106,7 @@ class DeviceAudience(
             // В Kotlin/JS не хватает перегрузки remove(note, deferredResponse) и функции compute
             val value = deferredResponses[note]
             if (value == deferredResponse) {
-                deferredResponses.remove(note)
+                deferredResponses -= note
             }
         }
     }
@@ -115,9 +116,9 @@ class DeviceAudience(
     }
 }
 
-private fun ServerConnection.launchPinger(
+private fun ServerConnection.producePings(
     pingTimeout: Duration = 10.seconds,
-): Channel<DeviceResponse.Pong> {
+): SendChannel<DeviceResponse.Pong> {
     val receivedPongs = Channel<DeviceResponse.Pong>(capacity = Channel.CONFLATED)
 
     launch {
