@@ -2,12 +2,14 @@ package lerpmusic.consensus.device
 
 import arrow.continuations.SuspendApp
 import arrow.core.raise.nullable
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.*
-import io.ktor.http.*
-import io.ktor.serialization.*
-import io.ktor.serialization.kotlinx.*
-import io.ktor.websocket.*
+import io.ktor.http.URLProtocol
+import io.ktor.http.buildUrl
+import io.ktor.http.path
+import io.ktor.serialization.WebsocketDeserializeException
+import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
+import io.ktor.websocket.Frame
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
@@ -88,9 +90,9 @@ private suspend fun withRetries(
     block: suspend CoroutineScope.() -> Unit,
 ) {
     return flow { emit(coroutineScope { block() }) }
-        .retryWhen { ex, retriesDone ->
+        .retryWhen { ex, attempts ->
             max.outlet("status", "stopped")
-            max.post("Got exception $ex, retry attempt ${retriesDone + 1}")
+            max.post("Got exception $ex on attempt $attempts")
             ex.printStackTrace()
             delay(retryAfter)
             true

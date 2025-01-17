@@ -44,18 +44,20 @@ class ConsensusSessionLauncher(
     private val coroutineScope: CoroutineScope = CoroutineScope(Job())
     private val expectedIds = (10..14).map { SessionId(it.toString()) }
 
-    private val sessions = ConcurrentHashMap<SessionId, SharedFlow<ConsensusSession>>()
+    private val sessions = ConcurrentHashMap<SessionId, StateFlow<ConsensusSession?>>()
 
     /**
      * Возвращает [ConsensusSession], когда она стартует, если сессии нет — создаёт её.
      *
+     * Если сессия не запущена или завершилась ошибкой, возвращается `null`
+     *
      * Сессия активна, пока выполняется возвращаемый [Flow].
      */
-    fun getSession(id: SessionId): Flow<ConsensusSession> {
+    fun getSession(id: SessionId): Flow<ConsensusSession?> {
         if (id !in expectedIds) return emptyFlow()
 
         val deferredSession = sessions.getOrPut(id) {
-            val launchSession: Flow<ConsensusSession> = flow {
+            val launchSession: Flow<ConsensusSession?> = flow {
                 coroutineScope {
                     val session = ConsensusSession(
                         id = id,
@@ -71,7 +73,8 @@ class ConsensusSessionLauncher(
 
             launchSession
                 .retryWhen { ex, attempts ->
-                    log.error(ex) { "Session $id exited unexpectedly, retry attempt #${attempts + 1}" }
+                    log.warn(ex) { "Session $id exited unexpectedly on attempt #$attempts" }
+                    emit(null)
                     true
                 }
                 .onCompletion {
@@ -79,13 +82,13 @@ class ConsensusSessionLauncher(
                     log.info("Session $id completed successfully")
                     sessions.remove(id)
                 }
-                .shareIn(
+                .stateIn(
                     scope = coroutineScope,
                     started = SharingStarted.WhileSubscribed(
                         stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
                         replayExpirationMillis = 0,
                     ),
-                    replay = 1,
+                    initialValue = null,
                 )
         }
 

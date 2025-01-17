@@ -5,7 +5,7 @@ import com.google.zxing.client.j2se.MatrixToImageConfig
 import com.google.zxing.client.j2se.MatrixToImageWriter
 import com.google.zxing.qrcode.QRCodeWriter
 import com.typesafe.config.ConfigFactory
-import io.ktor.server.application.ApplicationCall
+import io.ktor.http.Parameters
 import io.ktor.server.http.content.resolveResource
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.host
@@ -18,11 +18,7 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.withContext
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
@@ -89,26 +85,19 @@ private fun Route.consensusSessionDeviceRoute(
     sessionLauncher: ConsensusSessionLauncher,
 ) {
     webSocket("/device/{sessionPin}") {
-        val sessionId = SessionId(call.parameters["sessionId"]!!)
+        val sessionId = call.parameters.sessionId
         val sessionPin = SessionPin(call.parameters["sessionPin"]!!)
 
-        flow<Nothing> { awaitCancellation() }
-            .onCompletion { println("cancelled") }
-            .launchIn(this)
-
         withCallIdInMDC(call.callId) {
+            val connection = DeviceConnection(
+                id = Uuid.random(),
+                webSocketSession = this@webSocket,
+                coroutineScope = this
+            )
+
             val session = sessionLauncher.getSession(sessionId)
             session.collectLatest { session ->
-                if (session == null) return@collectLatest
-
-                val connection = DeviceConnection(
-                    id = Uuid.random(),
-                    webSocketSession = this@webSocket,
-                )
-                session.addDevice(connection, sessionPin)
-
-                // Отключение от сессии произойдёт при отмене текущей корутины, поэтому просто ждём
-                awaitCancellation()
+                session?.addDevice(connection, sessionPin)
             }
         }
     }
@@ -137,7 +126,7 @@ private fun Route.consensusSessionListenerRoute(
             }
 
             append("/c/")
-            append(call.sessionId.value)
+            append(call.parameters["sessionId"])
         }
 
         val qr = withContext(Dispatchers.IO) {
@@ -150,19 +139,18 @@ private fun Route.consensusSessionListenerRoute(
     }
 
     webSocket("/listener") {
-        val sessionId = call.sessionId
+        val sessionId = call.parameters.sessionId
 
         withCallIdInMDC(call.callId) {
+            val connection = ListenerConnection(
+                id = Uuid.random(),
+                webSocketSession = this@webSocket,
+                coroutineScope = this,
+            )
+
             val session = sessionLauncher.getSession(sessionId)
             session.collectLatest { session ->
-                val connection = ListenerConnection(
-                    id = Uuid.random(),
-                    webSocketSession = this@webSocket,
-                )
-                session.addListener(connection)
-
-                // Отключение от сессии произойдёт при отмене текущей корутины, поэтому просто ждём
-                awaitCancellation()
+                session?.addListener(connection)
             }
         }
     }
@@ -175,5 +163,5 @@ private fun generateQRCodeImage(barcodeText: String): BufferedImage {
     return MatrixToImageWriter.toBufferedImage(bitMatrix, config)
 }
 
-private val ApplicationCall.sessionId
-    get() = SessionId(parameters["sessionId"]!!)
+private val Parameters.sessionId
+    get() = SessionId(get("sessionId")!!)

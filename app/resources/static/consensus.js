@@ -16,7 +16,7 @@ function toggleIntensityWrapperVisibility(visible) {
 }
 
 function toggleActionWrapperVisibility(visible) {
-    if (actionWrapper.style.display === 'none') {
+    if (visible) {
         actionWrapper.style.display = 'flex';
     } else {
         actionWrapper.style.display = 'none';

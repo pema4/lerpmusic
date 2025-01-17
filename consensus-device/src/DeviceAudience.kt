@@ -4,10 +4,7 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consume
 import kotlinx.coroutines.flow.*
-import lerpmusic.consensus.Audience
-import lerpmusic.consensus.DeviceRequest
-import lerpmusic.consensus.DeviceResponse
-import lerpmusic.consensus.Note
+import lerpmusic.consensus.*
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -26,10 +23,10 @@ class DeviceAudience(
      *
      * Эта конструкция заменяет атомарный флаг + дублирование логики подписки/отписки в [intensityUpdates]
      */
-    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<Double>?> = flow {
+    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<IntensityUpdate>?> = flow {
         // 1. начинаем слушать сообщения от слушателя
         // Это происходит до отправки запроса, чтобы не просыпать никакие ответы
-        emit(MutableSharedFlow<Double>())
+        emit(MutableSharedFlow<IntensityUpdate>())
 
         // 2. уведомляем слушателя о том, что хотим получать уведомления об интенсивности.
         serverConnection.send(DeviceRequest.ReceiveIntensityUpdates)
@@ -45,7 +42,7 @@ class DeviceAudience(
         }
     }.stateIn(serverConnection, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), null)
 
-    override val intensityUpdates: Flow<Double> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
+    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
 
     private val receiverCoroutine = serverConnection.launch { receiveMessages() }
 
@@ -54,7 +51,12 @@ class DeviceAudience(
             when (val event = serverConnection.receive()) {
                 is DeviceResponse.Pong -> receivedPongs.send(event)
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
-                is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(event.delta)
+                is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(
+                    IntensityUpdate(
+                        event.decrease,
+                        event.increase
+                    )
+                )
             }
         }
     }

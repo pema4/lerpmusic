@@ -21,17 +21,18 @@ class SessionComposition(
     }
 
     fun addDevice(connection: DeviceConnection) {
-        val newDevice = SessionDevice(
-            connection = connection,
-        )
+        coroutineScope.launch(CoroutineName("DeviceConnectionCompletionHandler")) {
+            val newDevice = SessionDevice(
+                connection = connection,
+            )
 
-        activeDevices.update { devices ->
-            check(devices.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
-            devices + newDevice
-        }
+            activeDevices.update { devices ->
+                check(devices.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
+                devices + newDevice
+            }
 
-        // При отключении удаляемся из списка
-        connection.coroutineContext.job.invokeOnCompletion {
+            // При отключении удаляемся из списка
+            connection.coroutineContext.job.join()
             activeDevices.update { devices -> devices - newDevice }
         }
     }
@@ -66,9 +67,9 @@ class SessionComposition(
             .map { it > 0 }
             .distinctUntilChanged()
 
-    override suspend fun updateIntensity(delta: Double) {
+    override suspend fun updateIntensity(update: IntensityUpdate) {
         val jobs = activeDevices.value.map { device ->
-            device.connection.launch { device.updateIntensity(delta) }
+            device.connection.launch { device.updateIntensity(update) }
         }
         val handler = currentCoroutineContext().job.invokeOnCompletion { jobs.forEach { it.cancel() } }
         jobs.joinAll()
@@ -134,9 +135,9 @@ class SessionDevice(
     override suspend fun play(ev: NoteEvent) {
     }
 
-    override suspend fun updateIntensity(delta: Double) {
+    override suspend fun updateIntensity(update: IntensityUpdate) {
         if (isIntensityRequested.value) {
-            connection.send(DeviceResponse.IntensityUpdate(delta))
+            connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
         }
     }
 }
@@ -144,7 +145,8 @@ class SessionDevice(
 class DeviceConnection(
     val id: Uuid,
     private val webSocketSession: WebSocketServerSession,
-) : CoroutineScope by webSocketSession {
+    private val coroutineScope: CoroutineScope,
+) : CoroutineScope by coroutineScope {
     suspend fun send(data: DeviceResponse) {
         return webSocketSession.sendSerialized(data).also { log.debug { "Sent $data" } }
     }

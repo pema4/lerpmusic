@@ -1,12 +1,11 @@
 package lerpmusic.website.consensus
 
-import io.ktor.server.websocket.*
+import io.ktor.server.websocket.WebSocketServerSession
+import io.ktor.server.websocket.receiveDeserialized
+import io.ktor.server.websocket.sendSerialized
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
-import lerpmusic.consensus.Audience
-import lerpmusic.consensus.ListenerRequest
-import lerpmusic.consensus.ListenerResponse
-import lerpmusic.consensus.Note
+import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.runningSetDifference
 import kotlin.uuid.Uuid
 
@@ -30,22 +29,23 @@ class SessionAudience(
      * Удаление произойдёт автоматически при отключении слушателя.
      */
     fun addListener(connection: ListenerConnection) {
-        val newListener = SessionListener(
-            connection = connection,
-        )
+        coroutineScope.launch(CoroutineName("ListenerConnectionCompletionHandler")) {
+            val newListener = SessionListener(
+                connection = connection,
+            )
 
-        activeListeners.update { listeners ->
-            check(listeners.none { it.connection == connection }) { "Connection $connection already exists" }
-            listeners + newListener
-        }
+            activeListeners.update { listeners ->
+                check(listeners.none { it.connection == connection }) { "Connection $connection already exists" }
+                listeners + newListener
+            }
 
-        // При отключении слушателя удаляем его из списка
-        connection.coroutineContext.job.invokeOnCompletion {
+            // При отключении слушателя удаляем его из списка
+            connection.coroutineContext.job.join()
             activeListeners.update { listeners -> listeners - newListener }
         }
     }
 
-    override val intensityUpdates: Flow<Double> = channelFlow {
+    override val intensityUpdates: Flow<IntensityUpdate> = channelFlow {
         activeListeners.collectEachAddedListener { listener ->
             listener.intensityUpdates.collect { send(it) }
         }
@@ -108,10 +108,10 @@ private class SessionListener(
      *
      * Эта конструкция заменяет атомарный флаг + дублирование логики подписки/отписки в [intensityUpdates]
      */
-    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<Double>?> = flow {
+    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<IntensityUpdate>?> = flow {
         // 1. начинаем слушать сообщения от слушателя
         // Это происходит до отправки запроса, чтобы не просыпать никакие ответы
-        emit(MutableSharedFlow<Double>())
+        emit(MutableSharedFlow<IntensityUpdate>())
 
         // 2. уведомляем слушателя о том, что хотим получать уведомления об интенсивности.
         connection.send(ListenerResponse.ReceiveIntensityUpdates)
@@ -130,14 +130,14 @@ private class SessionListener(
     /**
      * Изменения интенсивности
      */
-    override val intensityUpdates: Flow<Double> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
+    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
 
     suspend fun receiveMessages(): Nothing {
         while (true) {
             when (val event = connection.receive()) {
                 ListenerRequest.Action -> TODO()
-                ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.value?.emit(-1.0)
-                ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.value?.emit(1.0)
+                ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(1.0, 0.0))
+                ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(0.0, 1.0))
             }
         }
     }
@@ -154,7 +154,7 @@ private class SessionListener(
 class ListenerConnection(
     val id: Uuid,
     private val webSocketSession: WebSocketServerSession,
-    private val coroutineScope: CoroutineScope = webSocketSession,
+    private val coroutineScope: CoroutineScope,
 ) : CoroutineScope by coroutineScope {
     suspend fun send(data: ListenerResponse): Unit = webSocketSession.sendSerialized(data)
     suspend fun receive(): ListenerRequest = webSocketSession.receiveDeserialized()

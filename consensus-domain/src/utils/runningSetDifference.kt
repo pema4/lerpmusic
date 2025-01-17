@@ -12,6 +12,9 @@ data class SetDifference<out T>(
     }
 }
 
+/**
+ * Флоу апдейтов коллекции — добавления и удаления элементов.
+ */
 fun <T> Flow<Iterable<T>>.runningSetDifference(): Flow<SetDifference<T>> {
     return onCompletion { emit(emptySet()) }
         .runningFold(initial = SetDifference.EMPTY as SetDifference<T>) { (_, _, previousElementSet), elements ->

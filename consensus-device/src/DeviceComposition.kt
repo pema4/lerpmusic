@@ -5,6 +5,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import lerpmusic.consensus.Composition
+import lerpmusic.consensus.IntensityUpdate
 import lerpmusic.consensus.NoteEvent
 
 class DeviceComposition(
@@ -34,7 +35,7 @@ class DeviceComposition(
         }
     }
 
-    override suspend fun updateIntensity(delta: Double) {
-        max.outlet("intensity", delta)
+    override suspend fun updateIntensity(update: IntensityUpdate) {
+        max.outlet("intensity", update.decrease, update.increase)
     }
 }

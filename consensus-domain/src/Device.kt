@@ -50,5 +50,5 @@ sealed class DeviceResponse {
 
     @Serializable
     @SerialName("IntensityUpdate")
-    data class IntensityUpdate(val delta: Double) : DeviceResponse()
+    data class IntensityUpdate(val decrease: Double, val increase: Double) : DeviceResponse()
 }

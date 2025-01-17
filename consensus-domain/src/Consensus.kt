@@ -1,10 +1,8 @@
 package lerpmusic.consensus
 
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.supervisorScope
-import lerpmusic.consensus.utils.conflateDelta
 
 /**
  * Алгоритм интерактивной композиции.
@@ -53,7 +51,7 @@ class Consensus(
         composition.isIntensityRequested.collectLatest { requested ->
             if (requested) {
                 audience.intensityUpdates
-                    .conflateDelta()
+                    .conflateDeltas()
                     .collect { composition.updateIntensity(it) }
             }
         }
@@ -81,7 +79,7 @@ interface Composition {
      */
     val isIntensityRequested: Flow<Boolean>
 
-    suspend fun updateIntensity(delta: Double)
+    suspend fun updateIntensity(update: IntensityUpdate)
 }
 
 interface Audience {
@@ -98,5 +96,30 @@ interface Audience {
     /**
      * Изменения интенсивности
      */
-    val intensityUpdates: Flow<Double>
+    val intensityUpdates: Flow<IntensityUpdate>
+}
+
+data class IntensityUpdate(val decrease: Double, val increase: Double) {
+    operator fun plus(other: IntensityUpdate) =
+        IntensityUpdate(decrease + other.decrease, increase + other.increase)
+
+    operator fun minus(other: IntensityUpdate) =
+        IntensityUpdate(decrease - other.decrease, increase - other.increase)
+}
+
+/**
+ * Апдейты могут приходить быстрее, чем их обработает коллектор
+ */
+fun Flow<IntensityUpdate>.conflateDeltas(): Flow<IntensityUpdate> {
+    return flow {
+        var lastCollectedSum = IntensityUpdate(0.0, 0.0)
+
+        runningFold(lastCollectedSum, IntensityUpdate::plus)
+            .conflate()
+            .collect { sum ->
+                val delta = sum - lastCollectedSum
+                lastCollectedSum = sum
+                emit(delta)
+            }
+    }
 }
