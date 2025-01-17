@@ -58,10 +58,12 @@ fun CoroutineScope.launchConsensus(
     }
 
     launch {
-        composition.isListenersCountRequested.collectLatest {
-            audience.listenersCount
-                .conflate()
-                .collect { composition.updateListenersCount(it) }
+        composition.isListenersCountRequested.collectLatest { requested ->
+            if (requested) {
+                audience.listenersCount
+                    .conflate()
+                    .collect { composition.updateListenersCount(it) }
+            }
         }
     }
 }
