@@ -15,9 +15,12 @@ class SessionComposition(
     private val coroutineScope: CoroutineScope,
 ) : Composition {
     private val activeDevices: MutableStateFlow<List<SessionDevice>> = MutableStateFlow(emptyList())
+    override val isListenersCountRequested: Flow<Boolean> = flowOf(true)
 
-    private val receiverCoroutine = coroutineScope.launch {
-        activeDevices.collectEachAddedDevice { it.receiveMessages() }
+    init {
+        coroutineScope.launch {
+            activeDevices.collectEachAddedDevice { it.receiveMessages() }
+        }
     }
 
     fun addDevice(connection: DeviceConnection) {
@@ -34,6 +37,18 @@ class SessionComposition(
             // При отключении удаляемся из списка
             connection.coroutineContext.job.join()
             activeDevices.update { devices -> devices - newDevice }
+        }
+    }
+
+    override suspend fun updateListenersCount(count: Int) {
+        val jobs = activeDevices.value.map { device ->
+            device.connection.launch { device.updateListenersCount(count) }
+        }
+
+        try {
+            jobs.joinAll()
+        } finally {
+            jobs.forEach { it.cancel() }
         }
     }
 
@@ -71,9 +86,12 @@ class SessionComposition(
         val jobs = activeDevices.value.map { device ->
             device.connection.launch { device.updateIntensity(update) }
         }
-        val handler = currentCoroutineContext().job.invokeOnCompletion { jobs.forEach { it.cancel() } }
-        jobs.joinAll()
-        handler.dispose()
+
+        try {
+            jobs.joinAll()
+        } finally {
+            jobs.forEach { it.cancel() }
+        }
     }
 
     private suspend fun StateFlow<List<SessionDevice>>.collectEachAddedDevice(
@@ -117,6 +135,9 @@ class SessionDevice(
     private val _isIntensityRequested = MutableStateFlow(false)
     override val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
+    private val _isListenersCountRequested = MutableStateFlow(false)
+    override val isListenersCountRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
+
     suspend fun receiveMessages(): Nothing {
         while (true) {
             when (val event = connection.receive()) {
@@ -125,8 +146,13 @@ class SessionDevice(
                 is DeviceRequest.CancelNote -> {}
                 DeviceRequest.ReceiveIntensityUpdates -> _isIntensityRequested.value = true
                 DeviceRequest.CancelIntensityUpdates -> _isIntensityRequested.value = false
+                is DeviceRequest.ReceiveListenersCount -> _isListenersCountRequested.value = event.receive
             }
         }
+    }
+
+    override suspend fun updateListenersCount(count: Int) {
+        connection.send(DeviceResponse.ListenersCount(count))
     }
 
     override val events: Flow<NoteEvent>

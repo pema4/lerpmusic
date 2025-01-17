@@ -16,6 +16,7 @@ class SessionAudience(
     private val coroutineScope: CoroutineScope,
 ) : Audience {
     private val activeListeners: MutableStateFlow<List<SessionListener>> = MutableStateFlow(emptyList())
+    override val listenersCount: Flow<Int> = activeListeners.map { it.size }
 
     init {
         coroutineScope.launch {
@@ -100,6 +101,8 @@ class SessionAudience(
 private class SessionListener(
     val connection: ListenerConnection,
 ) : Audience {
+    override val listenersCount: Flow<Int> = flowOf(1)
+
     /**
      * Небольшой абьюз [SharedFlow] и [SharingStarted.WhileSubscribed]:
      * - при первой подписке на [intensityUpdates] будет отправлен запрос слушателю

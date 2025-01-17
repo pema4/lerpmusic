@@ -14,6 +14,9 @@ class DeviceAudience(
 ) : Audience {
     private val deferredResponses = mutableMapOf<Note, CompletableDeferred<Boolean>>()
     private val receivedPongs = serverConnection.launchPinger()
+    private val receivedListenersCount = MutableStateFlow<Int>(0)
+
+    override val listenersCount: Flow<Int> = receivedListenersCount.asStateFlow()
 
     /**
      * Небольшой абьюз [SharedFlow] и [SharingStarted.WhileSubscribed]:
@@ -44,12 +47,15 @@ class DeviceAudience(
 
     override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
 
-    private val receiverCoroutine = serverConnection.launch { receiveMessages() }
+    init {
+        serverConnection.launch { receiveMessages() }
+    }
 
     private suspend fun CoroutineScope.receiveMessages(): Nothing {
         while (true) {
             when (val event = serverConnection.receive()) {
                 is DeviceResponse.Pong -> receivedPongs.send(event)
+                is DeviceResponse.ListenersCount -> receivedListenersCount.value = event.count
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
                 is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(
                     IntensityUpdate(

@@ -1,10 +1,13 @@
 package lerpmusic.website.consensus
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
-import lerpmusic.consensus.Consensus
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
+import lerpmusic.consensus.launchConsensus
 import mu.KotlinLogging
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration
@@ -22,9 +25,7 @@ class ConsensusSession(
     private val audience = SessionAudience(coroutineScope)
 
     init {
-        val consensus = Consensus(composition, audience)
-        coroutineScope.launch { consensus.filterCompositionEvents() }
-        coroutineScope.launch { consensus.receiveIntensityUpdates() }
+        coroutineScope.launchConsensus(composition, audience)
     }
 
     fun addDevice(connection: DeviceConnection, pin: SessionPin) {

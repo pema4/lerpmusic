@@ -128,6 +128,7 @@ suspend fun Device.processRequests(
             is DeviceRequest.CancelIntensityUpdates -> TODO()
 
             DeviceRequest.Ping -> TODO()
+            is DeviceRequest.ReceiveListenersCount -> TODO()
         }
     }
 }

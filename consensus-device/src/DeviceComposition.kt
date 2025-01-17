@@ -11,7 +11,12 @@ import lerpmusic.consensus.NoteEvent
 class DeviceComposition(
     private val max: Max,
     override val isIntensityRequested: Flow<Boolean>,
+    override val isListenersCountRequested: Flow<Boolean>,
 ) : Composition {
+    override suspend fun updateListenersCount(count: Int) {
+        max.outlet("listeners", count)
+    }
+
     override val events: Flow<NoteEvent> =
         max.inlet3("midiin")
             .mapNotNull {

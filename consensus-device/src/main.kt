@@ -13,9 +13,9 @@ import io.ktor.websocket.Frame
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
-import lerpmusic.consensus.Consensus
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
+import lerpmusic.consensus.launchConsensus
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -49,6 +49,11 @@ fun main() = SuspendApp {
         .map { it != 0 }
         .stateIn(this)
 
+    val isListenersCountRequested: Flow<Boolean> = max.inlet("listeners")
+        .map { it?.toString()?.toInt() ?: 0 }
+        .map { it != 0 }
+        .stateIn(this)
+
     val configuration: Flow<ServerConnectionConfig?> =
         combine(serverHost, sessionId, sessionPin) { serverHost, sessionId, sessionPin ->
             nullable {
@@ -69,13 +74,10 @@ fun main() = SuspendApp {
             while (true) {
                 withRetries {
                     openServerConnection(configuration) { serverConnection ->
-                        val consensus = Consensus(
-                            composition = DeviceComposition(max, isIntensityRequested),
+                        launchConsensus(
+                            composition = DeviceComposition(max, isIntensityRequested, isListenersCountRequested),
                             audience = DeviceAudience(serverConnection, max)
                         )
-
-                        launch { consensus.filterCompositionEvents() }
-                        launch { consensus.receiveIntensityUpdates() }
 
                         max.outlet("status", "running")
                     }

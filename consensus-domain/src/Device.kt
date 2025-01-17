@@ -31,6 +31,10 @@ sealed class DeviceRequest {
     @Serializable
     @SerialName("CancelIntensityUpdates")
     data object CancelIntensityUpdates : DeviceRequest()
+
+    @Serializable
+    @SerialName("ReceiveListenersCount")
+    data class ReceiveListenersCount(val receive: Boolean) : DeviceRequest()
 }
 
 /**
@@ -41,6 +45,10 @@ sealed class DeviceResponse {
     @Serializable
     @SerialName("Pong")
     data object Pong : DeviceResponse()
+
+    @Serializable
+    @SerialName("ListenersCount")
+    data class ListenersCount(val count: Int) : DeviceResponse()
 
     @Serializable
     @SerialName("PlayNote")

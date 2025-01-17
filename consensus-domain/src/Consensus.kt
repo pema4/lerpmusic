@@ -1,17 +1,17 @@
 package lerpmusic.consensus
 
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.supervisorScope
 
 /**
  * Алгоритм интерактивной композиции.
  */
-class Consensus(
-    val composition: Composition,
-    val audience: Audience,
+fun CoroutineScope.launchConsensus(
+    composition: Composition,
+    audience: Audience,
 ) {
-    suspend fun filterCompositionEvents() = supervisorScope {
+    launch {
         // без синхронизации, Kotlin/JS однопоточный
         val playingNotes = mutableSetOf<Note>()
 
@@ -38,22 +38,30 @@ class Consensus(
         }
 
         // В идеале должно быть так
-//        composition.events.collect { event ->
-//            launch {
-//                if (audience.shouldPlayNote(event.note)) {
-//                    composition.play(event)
-//                }
-//            }
-//        }
+        // composition.events.collect { event ->
+        //     launch {
+        //         if (audience.shouldPlayNote(event.note)) {
+        //             composition.play(event)
+        //         }
+        //     }
+        // }
     }
 
-    suspend fun receiveIntensityUpdates() {
+    launch {
         composition.isIntensityRequested.collectLatest { requested ->
             if (requested) {
                 audience.intensityUpdates
                     .conflateDeltas()
                     .collect { composition.updateIntensity(it) }
             }
+        }
+    }
+
+    launch {
+        composition.isListenersCountRequested.collectLatest {
+            audience.listenersCount
+                .conflate()
+                .collect { composition.updateListenersCount(it) }
         }
     }
 }
@@ -63,6 +71,10 @@ interface CompositionEvent {
 }
 
 interface Composition {
+    val isListenersCountRequested: Flow<Boolean>
+
+    suspend fun updateListenersCount(count: Int)
+
     /**
      * Входящие MIDI-события.
      * Чтобы воспроизвести событие, нужно вызвать на нём метод [play].
@@ -83,6 +95,8 @@ interface Composition {
 }
 
 interface Audience {
+    val listenersCount: Flow<Int>
+
     /**
      * Спросить слушателей, нужно ли проиграть ноту.
      */
