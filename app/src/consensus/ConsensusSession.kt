@@ -1,9 +1,6 @@
 package lerpmusic.website.consensus
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.slf4j.MDCContext
 import lerpmusic.consensus.SessionId
@@ -86,7 +83,7 @@ class ConsensusSessionLauncher(
                     }
                     sessions -= id
                 }
-                .flowOn(MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")))
+                .flowOn(MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")) + CoroutineName("session-handler"))
                 .stateIn(
                     scope = launcherScope,
                     started = SharingStarted.WhileSubscribed(

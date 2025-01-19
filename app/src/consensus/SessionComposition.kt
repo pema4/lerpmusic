@@ -142,11 +142,11 @@ class DeviceConnection(
     private val coroutineScope: CoroutineScope,
 ) : CoroutineScope by coroutineScope {
     suspend fun send(data: DeviceResponse) {
-        return webSocketSession.sendSerialized(data).also { log.debug { "Sent $data" } }
+        return webSocketSession.sendSerialized(data)
     }
 
     suspend fun receive(): DeviceRequest {
-        return webSocketSession.receiveDeserialized<DeviceRequest>().also { log.debug { "Received $it" } }
+        return webSocketSession.receiveDeserialized<DeviceRequest>()
     }
 }
 

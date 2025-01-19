@@ -17,13 +17,18 @@ class SessionAudience(
     private val sessionScope: CoroutineScope,
 ) : Audience {
     private val activeListeners: MutableStateFlow<List<SessionListener>> = MutableStateFlow(emptyList())
-    override val listenersCount: Flow<Int> = activeListeners.map { it.size }
 
     init {
         sessionScope.launch {
             activeListeners.collectAddedInChildCoroutine { it.receiveMessages() }
         }
     }
+
+    override val listenersCount: StateFlow<Int> =
+        activeListeners
+            .map { it.size }
+            .onEach { log.info { "listenersCount: $it" } }
+            .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = 0)
 
     /**
      * Добавление слушателя в сессию.
@@ -107,7 +112,7 @@ private class SessionListener(
     suspend fun receiveMessages(): Nothing {
         while (true) {
             when (val event = connection.receive()) {
-                ListenerRequest.Action -> TODO()
+                ListenerRequest.Action -> {}
                 ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(1.0, 0.0))
                 ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(0.0, 1.0))
             }

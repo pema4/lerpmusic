@@ -35,7 +35,6 @@ task<Sync>("prepareDistribution") {
     val projectDir = project.layout.projectDirectory
     val buildDir = project.layout.buildDirectory
     val executableName = project.name
-    println(executableName)
 
     from(projectDir) { include("*.amxd") }
     from(buildDir.dir("tmp/jsPublicPackageJson"))
