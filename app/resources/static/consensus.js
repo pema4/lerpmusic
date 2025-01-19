@@ -39,11 +39,10 @@ function setIntensityButtonsState(state /* disabled | active */) {
 
 function openConnection() {
     let href = window.location.href
-    // let socketUrl = href
-    //     .replace(/https/, 'wss')
-    //     .replace(/http/, 'ws')
-    //     .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
-    let socketUrl = 'ws://localhost:8080/consensus/10/listener'
+    let socketUrl = href
+        .replace(/https/, 'wss')
+        .replace(/http/, 'ws')
+        .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
     socket = new WebSocket(socketUrl)
 
     socket.addEventListener('open', () => {})
