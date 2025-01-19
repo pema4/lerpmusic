@@ -9,22 +9,21 @@ import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.collectAddedInChildCoroutine
 import mu.KotlinLogging
 import kotlin.math.sign
-import kotlin.uuid.Uuid
 
 class SessionComposition(
-    private val coroutineScope: CoroutineScope,
+    private val sessionScope: CoroutineScope,
 ) : Composition {
     private val activeDevices: MutableStateFlow<List<SessionDevice>> = MutableStateFlow(emptyList())
     override val isListenersCountRequested: Flow<Boolean> = flowOf(true)
 
     init {
-        coroutineScope.launch {
+        sessionScope.launch {
             activeDevices.collectAddedInChildCoroutine { it.receiveMessages() }
         }
     }
 
     fun addDevice(connection: DeviceConnection) {
-        coroutineScope.launch(CoroutineName("DeviceConnectionCompletionHandler")) {
+        sessionScope.launch(CoroutineName("DeviceConnectionCompletionHandler")) {
             val newDevice = SessionDevice(
                 connection = connection,
             )
@@ -33,22 +32,25 @@ class SessionComposition(
                 check(devices.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
                 devices + newDevice
             }
+            log.info { "Device ${connection.id} connected" }
 
             // При отключении удаляемся из списка
-            connection.coroutineContext.job.join()
-            activeDevices.update { devices -> devices - newDevice }
+            try {
+                connection.coroutineContext.job.join()
+            } finally {
+                activeDevices.update { devices -> devices - newDevice }
+                log.info { "Device ${connection.id} disconnected" }
+            }
         }
     }
 
     override suspend fun updateListenersCount(count: Int) {
-        val jobs = activeDevices.value.map { device ->
-            device.connection.launch { device.updateListenersCount(count) }
-        }
-
-        try {
-            jobs.joinAll()
-        } finally {
-            jobs.forEach { it.cancel() }
+        activeDevices.collectAddedInChildCoroutine { device ->
+            device.isListenersCountRequested.collectLatest { requested ->
+                if (requested) {
+                    device.updateListenersCount(count)
+                }
+            }
         }
     }
 
@@ -72,20 +74,22 @@ class SessionComposition(
                 }
         }
     }.runningFold(0, Int::plus)
-        .onEach { log.info { "intensityRequestedCount: $it" } }
 
     /**
      * Нужно ли запрашивать [Audience.intensityUpdates].
      */
-    override val isIntensityRequested: Flow<Boolean> =
+    override val isIntensityRequested: StateFlow<Boolean> =
         intensityRequestedCount
+            .onEach { log.info { "intensityRequestedCount: $it" } }
             .map { it > 0 }
-            .distinctUntilChanged()
+            .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
-        val jobs = activeDevices.value.map { device ->
-            device.connection.launch { device.updateIntensity(update) }
-        }
+        val jobs = activeDevices.value
+            .filter { it.isListenersCountRequested.value }
+            .map { device ->
+                device.connection.launch { device.updateIntensity(update) }
+            }
 
         try {
             jobs.joinAll()
@@ -118,9 +122,7 @@ class SessionDevice(
     }
 
     override suspend fun updateListenersCount(count: Int) {
-        if (isListenersCountRequested.value) {
-            connection.send(DeviceResponse.ListenersCount(count))
-        }
+        connection.send(DeviceResponse.ListenersCount(count))
     }
 
     override val events: Flow<NoteEvent>
@@ -130,14 +132,12 @@ class SessionDevice(
     }
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
-        if (isIntensityRequested.value) {
-            connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
-        }
+        connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
     }
 }
 
 class DeviceConnection(
-    val id: Uuid,
+    val id: String,
     private val webSocketSession: WebSocketServerSession,
     private val coroutineScope: CoroutineScope,
 ) : CoroutineScope by coroutineScope {
@@ -146,7 +146,7 @@ class DeviceConnection(
     }
 
     suspend fun receive(): DeviceRequest {
-        return webSocketSession.receiveDeserialized<DeviceRequest>().also { log.debug { "Received $it " } }
+        return webSocketSession.receiveDeserialized<DeviceRequest>().also { log.debug { "Received $it" } }
     }
 }
 

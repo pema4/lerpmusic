@@ -8,19 +8,19 @@ import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.collectAddedInChildCoroutine
 import lerpmusic.consensus.utils.flatMapMergeAddedInChildCoroutine
-import kotlin.uuid.Uuid
+import mu.KotlinLogging
 
 /**
  * Аудитория — несколько слушателей.
  */
 class SessionAudience(
-    private val coroutineScope: CoroutineScope,
+    private val sessionScope: CoroutineScope,
 ) : Audience {
     private val activeListeners: MutableStateFlow<List<SessionListener>> = MutableStateFlow(emptyList())
-    override val listenersCount: Flow<Int> = activeListeners.map { it.size }.distinctUntilChanged()
+    override val listenersCount: Flow<Int> = activeListeners.map { it.size }
 
     init {
-        coroutineScope.launch {
+        sessionScope.launch {
             activeListeners.collectAddedInChildCoroutine { it.receiveMessages() }
         }
     }
@@ -31,19 +31,24 @@ class SessionAudience(
      * Удаление произойдёт автоматически при отключении слушателя.
      */
     fun addListener(connection: ListenerConnection) {
-        coroutineScope.launch(CoroutineName("ListenerConnectionCompletionHandler")) {
+        sessionScope.launch(CoroutineName("ListenerConnectionCompletionHandler")) {
             val newListener = SessionListener(
                 connection = connection,
             )
 
             activeListeners.update { listeners ->
-                check(listeners.none { it.connection == connection }) { "Connection $connection already exists" }
+                check(listeners.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
                 listeners + newListener
             }
+            log.info { "Listener ${connection.id} connected" }
 
             // При отключении слушателя удаляем его из списка
-            connection.coroutineContext.job.join()
-            activeListeners.update { listeners -> listeners - newListener }
+            try {
+                connection.coroutineContext.job.join()
+            } finally {
+                activeListeners.update { listeners -> listeners - newListener }
+                log.info { "Listener ${connection.id} disconnected" }
+            }
         }
     }
 
@@ -119,10 +124,12 @@ private class SessionListener(
 }
 
 class ListenerConnection(
-    val id: Uuid,
+    val id: String,
     private val webSocketSession: WebSocketServerSession,
     private val coroutineScope: CoroutineScope,
 ) : CoroutineScope by coroutineScope {
     suspend fun send(data: ListenerResponse): Unit = webSocketSession.sendSerialized(data)
     suspend fun receive(): ListenerRequest = webSocketSession.receiveDeserialized()
 }
+
+private val log = KotlinLogging.logger {}

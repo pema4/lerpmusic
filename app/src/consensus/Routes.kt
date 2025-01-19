@@ -6,6 +6,7 @@ import com.google.zxing.client.j2se.MatrixToImageWriter
 import com.google.zxing.qrcode.QRCodeWriter
 import com.typesafe.config.ConfigFactory
 import io.ktor.http.Parameters
+import io.ktor.server.application.ApplicationStopPreparing
 import io.ktor.server.http.content.resolveResource
 import io.ktor.server.plugins.callid.callId
 import io.ktor.server.request.host
@@ -14,10 +15,13 @@ import io.ktor.server.response.respond
 import io.ktor.server.response.respondOutputStream
 import io.ktor.server.response.respondRedirect
 import io.ktor.server.routing.Route
+import io.ktor.server.routing.application
 import io.ktor.server.routing.get
 import io.ktor.server.routing.route
 import io.ktor.server.websocket.webSocket
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.ClosedReceiveChannelException
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import lerpmusic.consensus.SessionId
@@ -26,11 +30,11 @@ import lerpmusic.website.consensus.device.DeviceRepository
 import lerpmusic.website.consensus.listener.ListenerRepository
 import lerpmusic.website.consensus.session.SessionRepository
 import lerpmusic.website.util.withCallIdInMDC
+import mu.KotlinLogging
 import java.awt.image.BufferedImage
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
-import kotlin.uuid.Uuid
 
 private val config = ConfigFactory.load("lerpmusic.conf")
 private val sessionRepository = SessionRepository(
@@ -60,6 +64,8 @@ private val consensusService = ConsensusService(
 )
 
 fun Route.consensusSessionRoutes() {
+    application.monitor.subscribe(ApplicationStopPreparing) { sessionLauncher.shutdown() }
+
     route("/consensus/{sessionId}") {
         consensusSessionDeviceRoute(
             sessionLauncher = sessionLauncher,
@@ -89,15 +95,20 @@ private fun Route.consensusSessionDeviceRoute(
         val sessionPin = SessionPin(call.parameters["sessionPin"]!!)
 
         withCallIdInMDC(call.callId) {
-            val connection = DeviceConnection(
-                id = Uuid.random(),
-                webSocketSession = this@webSocket,
-                coroutineScope = this
-            )
+            try {
+                coroutineScope {
+                    val connection = DeviceConnection(
+                        id = call.callId!!,
+                        webSocketSession = this@webSocket,
+                        coroutineScope = this@coroutineScope,
+                    )
 
-            val session = sessionLauncher.getSession(sessionId)
-            session.collectLatest { session ->
-                session?.addDevice(connection, sessionPin)
+                    sessionLauncher
+                        .getSession(sessionId)
+                        .collectLatest { session -> session?.addDevice(connection, sessionPin) }
+                }
+            } catch (_: ClosedReceiveChannelException) {
+                log.info("WebSocket session closed")
             }
         }
     }
@@ -142,15 +153,22 @@ private fun Route.consensusSessionListenerRoute(
         val sessionId = call.parameters.sessionId
 
         withCallIdInMDC(call.callId) {
-            val connection = ListenerConnection(
-                id = Uuid.random(),
-                webSocketSession = this@webSocket,
-                coroutineScope = this,
-            )
+            try {
+                coroutineScope {
+                    val connection = ListenerConnection(
+                        id = call.callId!!,
+                        webSocketSession = this@webSocket,
+                        coroutineScope = this@coroutineScope,
+                    )
 
-            val session = sessionLauncher.getSession(sessionId)
-            session.collectLatest { session ->
-                session?.addListener(connection)
+                    sessionLauncher
+                        .getSession(sessionId)
+                        .collectLatest { session ->
+                            session?.addListener(connection)
+                        }
+                }
+            } catch (ex: ClosedReceiveChannelException) {
+                log.info("WebSocket session closed")
             }
         }
     }
@@ -165,3 +183,5 @@ private fun generateQRCodeImage(barcodeText: String): BufferedImage {
 
 private val Parameters.sessionId
     get() = SessionId(get("sessionId")!!)
+
+private val log = KotlinLogging.logger {}

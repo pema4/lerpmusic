@@ -2,6 +2,7 @@ package lerpmusic.website.consensus
 
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.slf4j.MDCContext
@@ -56,7 +57,7 @@ class ConsensusSessionLauncher(
      * Сессия активна, пока выполняется возвращаемый [Flow].
      */
     fun getSession(id: SessionId): Flow<ConsensusSession?> {
-        if (id !in expectedIds) return emptyFlow()
+        check(id in expectedIds) { "No session with id $id" }
 
         val session = sessions.computeIfAbsent(id) {
             val launchSession: Flow<ConsensusSession?> = flow {
@@ -77,8 +78,12 @@ class ConsensusSessionLauncher(
                     emit(null)
                     true
                 }
-                .onCompletion {
-                    log.info("Session completed successfully")
+                .onCompletion { ex ->
+                    if (ex == null) {
+                        log.info("Session completed successfully")
+                    } else {
+                        log.warn("Session completed", ex)
+                    }
                     sessions -= id
                 }
                 .flowOn(MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")))
@@ -93,6 +98,10 @@ class ConsensusSessionLauncher(
         }
 
         return session
+    }
+
+    fun shutdown() {
+        launcherScope.cancel("Application shutdown")
     }
 }
 
