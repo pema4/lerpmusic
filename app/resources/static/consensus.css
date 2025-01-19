@@ -10,6 +10,12 @@ body {
     height: 100%;
     margin: 0;
     font-family: 'Helvetica Neue';
+
+    /* В Safari на iOS долгое нажатие на кнопку срабатывает как выделение текста */
+    /* https://stackoverflow.com/questions/12304012/preventing-default-context-menu-on-longpress-longclick-in-mobile-safari-ipad */
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
 }
 
 #intensity-buttons-container {

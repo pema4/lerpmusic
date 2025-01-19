@@ -14,24 +14,20 @@ const intensityButtonsContainer = document.getElementById('intensity-buttons-con
 const increaseIntensityButton = document.getElementById("increase-intensity-button")
 const decreaseIntensityButton = document.getElementById("decrease-intensity-button")
 function setIntensityButtonsState(state /* disabled | active */) {
+    if (state == previousIntensityButtonsState) return
+
     switch (state) {
         case 'disabled':
-            if (!intensityButtonsContainer.classList.contains('disabled')) {
-                intensityButtonsContainer.classList.add('disabled')
-            }
+            intensityButtonsContainer.classList.add('disabled')
+            increaseIntensityButton.removeEventListener("click", increaseIntensity, false)
+            decreaseIntensityButton.removeEventListener("click", decreaseIntensity, false)
             break
 
         case 'active':
             intensityButtonsContainer.classList.remove('disabled')
+            increaseIntensityButton.addEventListener("click", increaseIntensity, false)
+            decreaseIntensityButton.addEventListener("click", decreaseIntensity, false)
             break
-    }
-
-    if (state == 'active' && previousIntensityButtonsState != 'active') {
-        increaseIntensityButton.addEventListener("click", increaseIntensity, false)
-        decreaseIntensityButton.addEventListener("click", decreaseIntensity, false)
-    } else if (state != 'active' && previousIntensityButtonsState == 'active') {
-        increaseIntensityButton.removeEventListener("click", increaseIntensity, false)
-        decreaseIntensityButton.removeEventListener("click", decreaseIntensity, false)
     }
 
     previousIntensityButtonsState = state
