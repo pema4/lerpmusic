@@ -1,130 +1,80 @@
-let askingForAction = false
-const actionWrapper = document.getElementById("action-wrapper")
-const actionButton = document.getElementById("action-button")
-
-let askingForIntensity = false
-const intensityWrapper = document.getElementById('intensity-wrapper')
-const increaseIntensityButton = document.getElementById("increase-button")
-const decreaseIntensityButton = document.getElementById("decrease-button")
-
-function toggleIntensityWrapperVisibility(visible) {
-    if (visible) {
-        intensityWrapper.classList.remove('hidden')
-    } else if (!intensityWrapper.classList.contains('hidden')) {
-        intensityWrapper.classList.add('hidden')
-    }
-}
-
-function toggleActionWrapperVisibility(visible) {
-    if (visible) {
-        actionWrapper.style.display = 'flex';
-    } else {
-        actionWrapper.style.display = 'none';
-    }
-}
-
-// Вебсокеты
-
+// Le socket
 let socket
-function actionPointerdownListener() {
-    if (askingForAction) {
-        const msg = { type: "Action" }
-        socket.send(JSON.stringify(msg))
-    }
+
+function increaseIntensity() {
+    socket.send(JSON.stringify({ type: "IncreaseIntensity" }))
 }
 
-function clickListener() {
+function decreaseIntensity() {
+    socket.send(JSON.stringify({ type: "DecreaseIntensity" }))
 }
 
-function intensityButtonClickListener() {
-    if (askingForIntensity) {
-        let type
-        if (this === increaseIntensityButton) {
-            type = "IncreaseIntensity"
-        } else if (this === decreaseIntensityButton) {
-            type = "DecreaseIntensity"
-        }
+let previousIntensityButtonsState = 'hidden'
+const intensityButtonsContainer = document.getElementById('intensity-buttons-container')
+const increaseIntensityButton = document.getElementById("increase-intensity-button")
+const decreaseIntensityButton = document.getElementById("decrease-intensity-button")
+function setIntensityButtonsState(state /* disabled | active */) {
+    switch (state) {
+        case 'disabled':
+            if (!intensityButtonsContainer.classList.contains('disabled')) {
+                intensityButtonsContainer.classList.add('disabled')
+            }
+            break
 
-        socket.send(JSON.stringify({ type }))
+        case 'active':
+            intensityButtonsContainer.classList.remove('disabled')
+            break
     }
+
+    if (state == 'active' && previousIntensityButtonsState != 'active') {
+        increaseIntensityButton.addEventListener("click", increaseIntensity, false)
+        decreaseIntensityButton.addEventListener("click", decreaseIntensity, false)
+    } else if (state != 'active' && previousIntensityButtonsState == 'active') {
+        increaseIntensityButton.removeEventListener("click", increaseIntensity, false)
+        decreaseIntensityButton.removeEventListener("click", decreaseIntensity, false)
+    }
+
+    previousIntensityButtonsState = state
 }
 
 function openConnection() {
     let href = window.location.href
-    let socketUrl = href
-        .replace(/https/, 'wss')
-        .replace(/http/, 'ws')
-        .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
+    // let socketUrl = href
+    //     .replace(/https/, 'wss')
+    //     .replace(/http/, 'ws')
+    //     .replace(/static\/consensus.html/, 'consensus/10') + '/listener'
+    let socketUrl = 'ws://localhost:8080/consensus/10/listener'
     socket = new WebSocket(socketUrl)
 
-    askingForAction = false
-    actionButton.hidden = true
-    askingForIntensity = false
-
-    socket.addEventListener('open', () => {
-        actionWrapper.addEventListener("pointerdown", actionPointerdownListener, false)
-        actionWrapper.addEventListener("click", clickListener, false)
-        increaseIntensityButton.addEventListener("click", intensityButtonClickListener, false)
-        decreaseIntensityButton.addEventListener("click", intensityButtonClickListener, false)
-    })
-
+    socket.addEventListener('open', () => {})
+    socket.addEventListener('error', () => setIntensityButtonsState('disabled'))
     socket.addEventListener('close', () => {
-        askingForAction = false
-        actionButton.hidden = true
-
-        setTimeout(tryOpenConnection, 500)
-
-        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
-        actionWrapper.removeEventListener("click", clickListener, false)
-        increaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
-        decreaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
+        setIntensityButtonsState('disabled')
+        setTimeout(mainLoop, 500)
     })
-
     socket.addEventListener('message', (event) => {
-        const msg = JSON.parse(event.data)
-        console.log('Message from server ', event.data)
-
+        let msg = JSON.parse(event.data)
         switch (msg.type) {
+            // Отсылаются миди-девайсом, сейчас не работают
             case "AskForAction":
-                askingForAction = true
-                actionButton.hidden = false
                 break
 
+            // Отсылаются миди-девайсом, сейчас не работают
             case "Cancel":
-                askingForAction = false
-                actionButton.hidden = true
                 break
 
             case "ReceiveIntensityUpdates":
-                askingForIntensity = true
-                toggleIntensityWrapperVisibility(true)
-                toggleActionWrapperVisibility(false)
+                setIntensityButtonsState('active')
                 break
 
             case "CancelIntensityUpdates":
-                askingForIntensity = true
-                toggleIntensityWrapperVisibility(false)
-                toggleActionWrapperVisibility(true)
+                setIntensityButtonsState('disabled')
                 break
         };
     })
-
-    socket.addEventListener('error', () => {
-        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
-        actionWrapper.removeEventListener("click", clickListener, false)
-        increaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
-        decreaseIntensityButton.removeEventListener("click", intensityButtonClickListener, false)
-
-        toggleIntensityWrapperVisibility(false)
-        toggleActionWrapperVisibility(true)
-
-        askingForAction = false
-        actionButton.hidden = true
-        askingForIntensity = false
-    })
 }
 
-function tryOpenConnection() {
+function mainLoop() {
     try {
         openConnection()
     } catch (e) {
@@ -132,12 +82,9 @@ function tryOpenConnection() {
         if (!!socket) {
             socket.close()
         }
-        askingForAction = false
-        actionButton.hidden = true
-        actionWrapper.removeEventListener("pointerdown", actionPointerdownListener, false)
-        actionWrapper.removeEventListener("click", clickListener, false)
-        setTimeout(tryOpenConnection, 500)
+        setIntensityButtonsState('disabled')
+        setTimeout(mainLoop, 500)
     }
 }
 
-tryOpenConnection()
+mainLoop()
