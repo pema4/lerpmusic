@@ -101,12 +101,12 @@ interface Audience {
     /**
      * Спросить слушателей, нужно ли проиграть ноту.
      */
-    suspend fun shouldPlayNote(note: Note): Boolean
+    suspend fun shouldPlayNote(note: Note): Boolean = false
 
     /**
      * Отменить запрос на проигрывание ноты, запущенный через [shouldPlayNote].
      */
-    fun cancelNote(note: Note)
+    fun cancelNote(note: Note) {}
 
     /**
      * Изменения интенсивности

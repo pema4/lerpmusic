@@ -8,7 +8,7 @@ data class SetDifference<out T>(
     val originalCollection: Iterable<T>,
 ) {
     companion object {
-        val EMPTY: SetDifference<Nothing> = SetDifference(emptySet(), emptySet(), emptyList())
+        internal val EMPTY: SetDifference<Nothing> = SetDifference(emptySet(), emptySet(), emptyList())
     }
 }
 
