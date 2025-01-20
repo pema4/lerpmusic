@@ -118,7 +118,7 @@ body {
     }
     
     #project-description-container {
-        background: #F0F0F0;
+        background: #FFF;
     }
 
     .intensity-button svg, #hse-link svg {
@@ -138,7 +138,7 @@ body {
     }
     
     #project-description-container {
-        background: #000;
+        background: #222;
     }
 
     .intensity-button svg, #hse-link svg {
