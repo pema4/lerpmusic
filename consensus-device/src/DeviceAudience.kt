@@ -2,8 +2,6 @@ package lerpmusic.consensus.device
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.producePings
 import lerpmusic.consensus.utils.receiveMessagesWithSubscription
@@ -15,8 +13,11 @@ class DeviceAudience(
     private val deferredResponses = mutableMapOf<Note, CompletableDeferred<Boolean>>()
     private val receivedPongs = serverConnection.producePings { DeviceRequest.Ping }
 
-    private val receivedListenersCount = MutableStateFlow<Int>(0)
-    override val listenersCount: Flow<Int> = receivedListenersCount.asStateFlow()
+    private val receivedListenersCount = serverConnection.receiveMessagesWithSubscription<Int>(
+        onStart = { serverConnection.send(DeviceRequest.ReceiveListenersCount(true)) },
+        onCancellation = { serverConnection.send(DeviceRequest.ReceiveListenersCount(false)) },
+    )
+    override val listenersCount: Flow<Int> = receivedListenersCount.incoming
 
     private val receivedIntensityUpdates = serverConnection.receiveMessagesWithSubscription<IntensityUpdate>(
         onStart = { serverConnection.send(DeviceRequest.ReceiveIntensityUpdates) },
@@ -32,7 +33,7 @@ class DeviceAudience(
         serverConnection.incoming.collect { event ->
             when (event) {
                 is DeviceResponse.Pong -> receivedPongs.send(event)
-                is DeviceResponse.ListenersCount -> receivedListenersCount.value = event.count
+                is DeviceResponse.ListenersCount -> receivedListenersCount.receive(event.count)
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
                 is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.receive(
                     IntensityUpdate(
