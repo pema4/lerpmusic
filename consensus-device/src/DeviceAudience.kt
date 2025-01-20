@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.producePings
-import lerpmusic.consensus.utils.receiveMessages
+import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 
 class DeviceAudience(
     private val serverConnection: ServerConnection,
@@ -18,7 +18,7 @@ class DeviceAudience(
     private val receivedListenersCount = MutableStateFlow<Int>(0)
     override val listenersCount: Flow<Int> = receivedListenersCount.asStateFlow()
 
-    private val receivedIntensityUpdates = serverConnection.receiveMessages<IntensityUpdate>(
+    private val receivedIntensityUpdates = serverConnection.receiveMessagesWithSubscription<IntensityUpdate>(
         onStart = { serverConnection.send(DeviceRequest.ReceiveIntensityUpdates) },
         onCancellation = { serverConnection.send(DeviceRequest.CancelIntensityUpdates) },
     )

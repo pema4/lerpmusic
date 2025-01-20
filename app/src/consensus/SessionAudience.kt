@@ -11,7 +11,7 @@ import lerpmusic.consensus.ListenerRequest
 import lerpmusic.consensus.ListenerResponse
 import lerpmusic.consensus.utils.collectConnected
 import lerpmusic.consensus.utils.flatMapConnected
-import lerpmusic.consensus.utils.receiveMessages
+import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 import mu.KotlinLogging
 
 /**
@@ -73,7 +73,7 @@ private class SessionListener(
 ) : Audience, CoroutineScope by connection {
     override val listenersCount: Flow<Int> = flowOf(1)
 
-    private val receivedIntensityUpdates = connection.receiveMessages<IntensityUpdate>(
+    private val receivedIntensityUpdates = connection.receiveMessagesWithSubscription<IntensityUpdate>(
         onStart = { connection.send(ListenerResponse.ReceiveIntensityUpdates) },
         onCancellation = { connection.send(ListenerResponse.CancelIntensityUpdates) },
     )

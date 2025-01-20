@@ -52,15 +52,15 @@ data class ReceivedMessages<T>(
  * Алгоритм:
  * 1. Получатель подписывается на [ReceivedMessages.incoming], если это первая подписка — выполняется [onStart].
  * 2. Сообщения, полученные по сокету, через [ReceivedMessages.receive] перенаправляются в [ReceivedMessages.incoming].
- * 3. Получатель отписывается от [ReceivedMessages.incoming], если это была последняя отписка — после таймаута [stopTimeout] выполняется [onCancellation].
+ * 3. Получатель отписывается от [ReceivedMessages.incoming], если это была последняя отписка — после таймаута [subscriptionKeepAlive] выполняется [onCancellation].
  *
  * Под капотом работает через [SharedFlow] и [SharingStarted.WhileSubscribed].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
-fun <T> WebSocketConnection<*, *>.receiveMessages(
-    stopTimeout: Duration = Duration.ZERO,
+fun <T> WebSocketConnection<*, *>.receiveMessagesWithSubscription(
     onStart: suspend () -> Unit = {},
     onCancellation: suspend CoroutineScope.() -> Unit = {},
+    subscriptionKeepAlive: Duration = Duration.ZERO,
 ): ReceivedMessages<T> {
     val messages: StateFlow<MutableSharedFlow<T>?> = flow {
         // 1. начинаем слушать сообщения
@@ -80,7 +80,7 @@ fun <T> WebSocketConnection<*, *>.receiveMessages(
     }.stateIn(
         scope = this,
         started = SharingStarted.WhileSubscribed(
-            stopTimeoutMillis = stopTimeout.inWholeMilliseconds,
+            stopTimeoutMillis = subscriptionKeepAlive.inWholeMilliseconds,
             replayExpirationMillis = 0,
         ),
         initialValue = null

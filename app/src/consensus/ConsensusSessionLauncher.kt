@@ -23,7 +23,8 @@ class ConsensusSessionLauncher(
     /**
      * Возвращает [ConsensusSession], когда она стартует, если сессии нет — создаёт её.
      *
-     * Если сессия не запущена или завершилась ошибкой, возвращается `null`
+     * Если сессия ещё не запущена или уже завершилась, возвращается `null`.
+     * При завершении ошибкой сессия создастся заново.
      *
      * Сессия активна, пока выполняется возвращаемый [kotlinx.coroutines.flow.Flow].
      */
@@ -46,14 +47,19 @@ class ConsensusSessionLauncher(
                 .onEach { log.info("Session started") }
                 .retryWhen { ex, attempts ->
                     log.warn(ex) { "Session exited unexpectedly on attempt #$attempts, retrying..." }
+                    delay(1.seconds)
                     emit(null)
                     true
                 }
                 .onCompletion { ex ->
-                    if (ex == null) {
-                        log.info("Session completed successfully")
-                    } else {
-                        log.warn("Session completed", ex)
+                    when (ex) {
+                        null -> {
+                            log.info("Session completed normally")
+                            emit(null)
+                        }
+
+                        is CancellationException -> log.info("Session cancelled")
+                        else -> log.warn("Session completed", ex)
                     }
                     sessions -= id
                 }
