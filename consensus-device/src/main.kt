@@ -16,6 +16,7 @@ import kotlinx.serialization.json.Json
 import lerpmusic.consensus.DeviceRequest
 import lerpmusic.consensus.DeviceResponse
 import lerpmusic.consensus.launchConsensus
+import lerpmusic.consensus.utils.WebSocketConnection
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -116,10 +117,15 @@ data class ServerConnectionConfig(
 
 class ServerConnection(
     private val webSocketSession: DefaultClientWebSocketSession,
-    private val coroutineScope: CoroutineScope,
-) : CoroutineScope by coroutineScope {
-    suspend fun send(data: DeviceRequest): Unit = webSocketSession.sendSerialized(data)
-    suspend fun receive(): DeviceResponse = webSocketSession.receiveDeserialized()
+    private val scope: CoroutineScope,
+) : WebSocketConnection<DeviceResponse, DeviceRequest>, CoroutineScope by scope {
+    override val incoming: Flow<DeviceResponse> = flow {
+        while (true) {
+            emit(webSocketSession.receiveDeserialized())
+        }
+    }
+
+    override suspend fun send(data: DeviceRequest): Unit = webSocketSession.sendSerialized(data)
 }
 
 private suspend fun openServerConnection(

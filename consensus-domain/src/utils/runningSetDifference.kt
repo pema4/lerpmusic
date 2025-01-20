@@ -8,12 +8,12 @@ data class SetDifference<out T>(
     val originalCollection: Iterable<T>,
 ) {
     companion object {
-        val EMPTY: SetDifference<Nothing> = SetDifference(emptySet(), emptySet(), emptyList())
+        internal val EMPTY: SetDifference<Nothing> = SetDifference(emptySet(), emptySet(), emptyList())
     }
 }
 
 /**
- * Флоу апдейтов коллекции — добавления и удаления элементов.
+ * [Flow] апдейтов коллекции — добавления и удаления элементов.
  */
 fun <T> Flow<Iterable<T>>.runningSetDifference(): Flow<SetDifference<T>> {
     return onCompletion { emit(emptySet()) }

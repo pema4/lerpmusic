@@ -1,14 +1,11 @@
 package lerpmusic.website.consensus
 
-import io.ktor.server.websocket.WebSocketServerSession
-import io.ktor.server.websocket.receiveDeserialized
-import io.ktor.server.websocket.sendSerialized
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import lerpmusic.consensus.*
-import lerpmusic.consensus.utils.collectAddedInChildCoroutine
+import lerpmusic.consensus.utils.collectConnected
+import lerpmusic.consensus.utils.runningCountConnected
 import mu.KotlinLogging
-import kotlin.math.sign
 
 class SessionComposition(
     private val sessionScope: CoroutineScope,
@@ -18,7 +15,7 @@ class SessionComposition(
 
     init {
         sessionScope.launch {
-            activeDevices.collectAddedInChildCoroutine { it.receiveMessages() }
+            activeDevices.collectConnected { it.receiveMessages() }
         }
     }
 
@@ -45,7 +42,7 @@ class SessionComposition(
     }
 
     override suspend fun updateListenersCount(count: Int) {
-        activeDevices.collectAddedInChildCoroutine { device ->
+        activeDevices.collectConnected { device ->
             device.isListenersCountRequested.collectLatest { requested ->
                 if (requested) {
                     device.updateListenersCount(count)
@@ -59,27 +56,12 @@ class SessionComposition(
     override suspend fun play(ev: NoteEvent) {
     }
 
-    private val intensityRequestedCount: Flow<Int> = channelFlow {
-        activeDevices.collectAddedInChildCoroutine { device ->
-            // Для перехода false -> true возвращаем 1, для true -> false - -1
-            // [false, true, false, true] -> [0, 1, -1, 1]
-            // [true, false, true] -> [0, 1, -1, 1]
-            var previous = false
-            device.isIntensityRequested
-                .onCompletion { if (previous) send(-1) }
-                .collect { requested ->
-                    val delta = (requested compareTo previous).sign
-                    previous = requested
-                    send(delta)
-                }
-        }
-    }.runningFold(0, Int::plus)
-
     /**
      * Нужно ли запрашивать [Audience.intensityUpdates].
      */
     override val isIntensityRequested: StateFlow<Boolean> =
-        intensityRequestedCount
+        activeDevices
+            .runningCountConnected { it.isIntensityRequested }
             .onEach { log.info { "intensityRequestedCount: $it" } }
             .map { it > 0 }
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
@@ -99,7 +81,7 @@ class SessionComposition(
     }
 }
 
-class SessionDevice(
+private class SessionDevice(
     val connection: DeviceConnection,
 ) : Composition, CoroutineScope by connection {
     private val _isIntensityRequested = MutableStateFlow(false)
@@ -108,9 +90,9 @@ class SessionDevice(
     private val _isListenersCountRequested = MutableStateFlow(false)
     override val isListenersCountRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
-    suspend fun receiveMessages(): Nothing {
-        while (true) {
-            when (val event = connection.receive()) {
+    suspend fun receiveMessages() {
+        connection.incoming.collect { event ->
+            when (event) {
                 DeviceRequest.Ping -> connection.send(DeviceResponse.Pong)
                 is DeviceRequest.AskNote -> {}
                 is DeviceRequest.CancelNote -> {}
@@ -133,20 +115,6 @@ class SessionDevice(
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
         connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
-    }
-}
-
-class DeviceConnection(
-    val id: String,
-    private val webSocketSession: WebSocketServerSession,
-    private val coroutineScope: CoroutineScope,
-) : CoroutineScope by coroutineScope {
-    suspend fun send(data: DeviceResponse) {
-        return webSocketSession.sendSerialized(data)
-    }
-
-    suspend fun receive(): DeviceRequest {
-        return webSocketSession.receiveDeserialized<DeviceRequest>()
     }
 }
 

@@ -1,64 +1,40 @@
 package lerpmusic.consensus.device
 
 import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.coroutines.channels.consume
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import lerpmusic.consensus.*
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
+import lerpmusic.consensus.utils.producePings
+import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 
 class DeviceAudience(
     private val serverConnection: ServerConnection,
     private val max: Max,
 ) : Audience {
     private val deferredResponses = mutableMapOf<Note, CompletableDeferred<Boolean>>()
-    private val receivedPongs = serverConnection.producePings()
+    private val receivedPongs = serverConnection.producePings { DeviceRequest.Ping }
 
     private val receivedListenersCount = MutableStateFlow<Int>(0)
     override val listenersCount: Flow<Int> = receivedListenersCount.asStateFlow()
 
-    /**
-     * Небольшой абьюз [SharedFlow] и [SharingStarted.WhileSubscribed]:
-     * - при первой подписке на [intensityUpdates] будет отправлен запрос слушателю
-     * - при последней отписке слушателю отправится уведомление об отмене
-     * - если подписки нет, сообщения от слушателя бросаются на пол
-     *
-     * Эта конструкция заменяет атомарный флаг + дублирование логики подписки/отписки в [intensityUpdates]
-     */
-    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<IntensityUpdate>?> = flow {
-        // 1. начинаем слушать сообщения от слушателя
-        // Это происходит до отправки запроса, чтобы не просыпать никакие ответы
-        emit(MutableSharedFlow<IntensityUpdate>())
-
-        // 2. уведомляем слушателя о том, что хотим получать уведомления об интенсивности.
-        serverConnection.send(DeviceRequest.ReceiveIntensityUpdates)
-
-        try {
-            // 3. слушаем бесконечно — пока кто-то подписан на эти уведомления
-            awaitCancellation()
-        } finally {
-            // 4. Компенсация шага 1 — отменяем уведомление
-            serverConnection.launch {
-                serverConnection.send(DeviceRequest.CancelIntensityUpdates)
-            }
-        }
-    }.stateIn(serverConnection, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), null)
-
-    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
+    private val receivedIntensityUpdates = serverConnection.receiveMessagesWithSubscription<IntensityUpdate>(
+        onStart = { serverConnection.send(DeviceRequest.ReceiveIntensityUpdates) },
+        onCancellation = { serverConnection.send(DeviceRequest.CancelIntensityUpdates) },
+    )
+    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.incoming
 
     init {
         serverConnection.launch { receiveMessages() }
     }
 
-    private suspend fun CoroutineScope.receiveMessages(): Nothing {
-        while (true) {
-            when (val event = serverConnection.receive()) {
+    private suspend fun CoroutineScope.receiveMessages() {
+        serverConnection.incoming.collect { event ->
+            when (event) {
                 is DeviceResponse.Pong -> receivedPongs.send(event)
                 is DeviceResponse.ListenersCount -> receivedListenersCount.value = event.count
                 is DeviceResponse.PlayNote -> deferredResponses[event.note]?.complete(true)
-                is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.value?.emit(
+                is DeviceResponse.IntensityUpdate -> receivedIntensityUpdates.receive(
                     IntensityUpdate(
                         event.decrease,
                         event.increase
@@ -114,24 +90,4 @@ class DeviceAudience(
     override fun cancelNote(note: Note) {
         deferredResponses[note]?.cancel()
     }
-}
-
-private fun ServerConnection.producePings(
-    pingTimeout: Duration = 10.seconds,
-): SendChannel<DeviceResponse.Pong> {
-    val receivedPongs = Channel<DeviceResponse.Pong>(capacity = Channel.CONFLATED)
-
-    launch {
-        receivedPongs.consume {
-            while (true) {
-                send(DeviceRequest.Ping)
-                delay(pingTimeout)
-                if (receivedPongs.tryReceive().isFailure) {
-                    error("Pong was not received within deadline, exiting")
-                }
-            }
-        }
-    }
-
-    return receivedPongs
 }

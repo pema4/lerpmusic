@@ -26,9 +26,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import lerpmusic.consensus.SessionId
 import lerpmusic.consensus.SessionPin
-import lerpmusic.website.consensus.device.DeviceRepository
-import lerpmusic.website.consensus.listener.ListenerRepository
-import lerpmusic.website.consensus.session.SessionRepository
 import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import java.awt.image.BufferedImage
@@ -37,30 +34,10 @@ import javax.imageio.ImageIO
 import kotlin.time.Duration.Companion.seconds
 
 private val config = ConfigFactory.load("lerpmusic.conf")
-private val sessionRepository = SessionRepository(
-    sessionPin = SessionPin(config.getString("lerpmusic.consensus.sessionPin")),
-)
 
 private val sessionLauncher = ConsensusSessionLauncher(
     expectedSessionPin = SessionPin(config.getString("lerpmusic.consensus.sessionPin")),
     sessionKeepAlive = config.getDuration("lerpmusic.consensus.sessionKeepAliveSeconds", TimeUnit.SECONDS).seconds
-)
-
-private val noteQueue = NoteQueue()
-
-private val deviceRepository = DeviceRepository(
-    sessionRepository = sessionRepository,
-    noteQueue = noteQueue,
-)
-
-private val listenerRepository = ListenerRepository(
-    sessionRepository = sessionRepository,
-)
-
-private val consensusService = ConsensusService(
-    deviceRepository = deviceRepository,
-    listenerRepository = listenerRepository,
-    noteQueue = noteQueue,
 )
 
 fun Route.consensusSessionRoutes() {

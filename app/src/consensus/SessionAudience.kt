@@ -1,13 +1,17 @@
 package lerpmusic.website.consensus
 
-import io.ktor.server.websocket.WebSocketServerSession
-import io.ktor.server.websocket.receiveDeserialized
-import io.ktor.server.websocket.sendSerialized
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
-import lerpmusic.consensus.*
-import lerpmusic.consensus.utils.collectAddedInChildCoroutine
-import lerpmusic.consensus.utils.flatMapMergeAddedInChildCoroutine
+import kotlinx.coroutines.job
+import kotlinx.coroutines.launch
+import lerpmusic.consensus.Audience
+import lerpmusic.consensus.IntensityUpdate
+import lerpmusic.consensus.ListenerRequest
+import lerpmusic.consensus.ListenerResponse
+import lerpmusic.consensus.utils.collectConnected
+import lerpmusic.consensus.utils.flatMapConnected
+import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 import mu.KotlinLogging
 
 /**
@@ -20,7 +24,7 @@ class SessionAudience(
 
     init {
         sessionScope.launch {
-            activeListeners.collectAddedInChildCoroutine { it.receiveMessages() }
+            activeListeners.collectConnected { it.receiveMessage() }
         }
     }
 
@@ -58,15 +62,7 @@ class SessionAudience(
     }
 
     override val intensityUpdates: Flow<IntensityUpdate> =
-        activeListeners.flatMapMergeAddedInChildCoroutine { it.intensityUpdates }
-
-    override suspend fun shouldPlayNote(note: Note): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun cancelNote(note: Note) {
-        TODO("Not yet implemented")
-    }
+        activeListeners.flatMapConnected { it.intensityUpdates }
 }
 
 /**
@@ -77,64 +73,25 @@ private class SessionListener(
 ) : Audience, CoroutineScope by connection {
     override val listenersCount: Flow<Int> = flowOf(1)
 
-    /**
-     * Небольшой абьюз [SharedFlow] и [SharingStarted.WhileSubscribed]:
-     * - при первой подписке на [intensityUpdates] будет отправлен запрос слушателю
-     * - при последней отписке слушателю отправится уведомление об отмене
-     * - если подписки нет, сообщения от слушателя бросаются на пол
-     *
-     * Эта конструкция заменяет атомарный флаг + дублирование логики подписки/отписки в [intensityUpdates]
-     */
-    private val receivedIntensityUpdates: StateFlow<MutableSharedFlow<IntensityUpdate>?> = flow {
-        // 1. начинаем слушать сообщения от слушателя
-        // Это происходит до отправки запроса, чтобы не просыпать никакие ответы
-        emit(MutableSharedFlow<IntensityUpdate>())
-
-        // 2. уведомляем слушателя о том, что хотим получать уведомления об интенсивности.
-        connection.send(ListenerResponse.ReceiveIntensityUpdates)
-
-        try {
-            // 3. слушаем бесконечно — пока кто-то подписан на эти уведомления
-            awaitCancellation()
-        } finally {
-            // 4. Компенсация шага 1 — отменяем уведомление,
-            connection.launch {
-                connection.send(ListenerResponse.CancelIntensityUpdates)
-            }
-        }
-    }.stateIn(connection, SharingStarted.WhileSubscribed(replayExpirationMillis = 0), null)
+    private val receivedIntensityUpdates = connection.receiveMessagesWithSubscription<IntensityUpdate>(
+        onStart = { connection.send(ListenerResponse.ReceiveIntensityUpdates) },
+        onCancellation = { connection.send(ListenerResponse.CancelIntensityUpdates) },
+    )
 
     /**
      * Изменения интенсивности
      */
-    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.flatMapLatest { it ?: emptyFlow() }
+    override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.incoming
 
-    suspend fun receiveMessages(): Nothing {
-        while (true) {
-            when (val event = connection.receive()) {
+    suspend fun receiveMessage() {
+        connection.incoming.collect { event ->
+            when (event) {
                 ListenerRequest.Action -> {}
-                ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(1.0, 0.0))
-                ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.value?.emit(IntensityUpdate(0.0, 1.0))
+                ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.receive(IntensityUpdate(1.0, 0.0))
+                ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.receive(IntensityUpdate(0.0, 1.0))
             }
         }
     }
-
-    override suspend fun shouldPlayNote(note: Note): Boolean {
-        TODO("Not yet implemented")
-    }
-
-    override fun cancelNote(note: Note) {
-        TODO("Not yet implemented")
-    }
-}
-
-class ListenerConnection(
-    val id: String,
-    private val webSocketSession: WebSocketServerSession,
-    private val coroutineScope: CoroutineScope,
-) : CoroutineScope by coroutineScope {
-    suspend fun send(data: ListenerResponse): Unit = webSocketSession.sendSerialized(data)
-    suspend fun receive(): ListenerRequest = webSocketSession.receiveDeserialized()
 }
 
 private val log = KotlinLogging.logger {}
