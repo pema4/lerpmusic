@@ -1,5 +1,6 @@
 html {
     height: 100%;
+    /* https://stackoverflow.com/questions/46167604/ios-html-disable-double-tap-to-zoom */
     touch-action: manipulation;
 }
 
@@ -11,11 +12,6 @@ body {
     margin: 0;
     font-family: 'Helvetica Neue';
 
-    /* В Safari на iOS долгое нажатие на кнопку срабатывает как выделение текста */
-    /* https://stackoverflow.com/questions/12304012/preventing-default-context-menu-on-longpress-longclick-in-mobile-safari-ipad */
-    -webkit-user-select: none !important;
-    -webkit-touch-callout: none !important;
-    user-select: none !important;
 }
 
 #intensity-buttons-container {
@@ -26,6 +22,11 @@ body {
     width: 100%;
     opacity: 1;
     transition: opacity 0.5s ease;
+    /* В Safari на iOS долгое нажатие на кнопку срабатывает как выделение текста */
+    /* https://stackoverflow.com/questions/12304012/preventing-default-context-menu-on-longpress-longclick-in-mobile-safari-ipad */
+    -webkit-user-select: none !important;
+    -webkit-touch-callout: none !important;
+    user-select: none !important;
 }
 
 .intensity-button {
@@ -79,16 +80,8 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    width: 100%;
-    background: #000;
-}
-
-#project-description {
-    padding: 1rem 1rem 1rem 1rem;
-    max-width: 600px;
-    justify-content: center;
-    margin-bottom: 2rem;
-    text-wrap: break-word;
+    padding: 1rem 0rem 1rem 0rem;
+    background: #222;
 }
 
 #project-description-container h1 {
@@ -103,7 +96,15 @@ body {
     unicode-bidi: isolate;
 }
 
-#hse-logo {
+#project-description-container article {
+    max-width: 600px;
+    justify-content: center;
+    padding: 0rem 1rem 0rem 1rem;
+    margin-bottom: 1rem;
+    text-wrap: break-word;
+}
+
+#hse-link svg {
     width: 16rem;
 }
 
@@ -120,7 +121,7 @@ body {
         background: #F0F0F0;
     }
 
-    .intensity-button svg, #hse-logo {
+    .intensity-button svg, #hse-link svg {
         stroke: #222;
         fill: #222;
     }
@@ -140,7 +141,7 @@ body {
         background: #000;
     }
 
-    .intensity-button svg, #hse-logo {
+    .intensity-button svg, #hse-link svg {
         stroke: #FFF;
         fill: #FFF;
     }
