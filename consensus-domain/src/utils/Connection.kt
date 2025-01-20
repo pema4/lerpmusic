@@ -1,9 +1,11 @@
 package lerpmusic.consensus.utils
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.launch
 import kotlin.math.sign
-import kotlin.time.Duration
 
 typealias Connection = CoroutineScope
 
@@ -27,12 +29,12 @@ suspend fun <T : Connection> Flow<List<T>>.collectConnected(
 
     runningSetDifference()
         .onEach { diff ->
-            for (connected in diff.added) {
-                launchedJobs[connected] = connected.launch { action(connected) }
+            for (connection in diff.added) {
+                launchedJobs[connection] = connection.launch { action(connection) }
             }
 
-            for (disconnected in diff.removed) {
-                launchedJobs.remove(disconnected)?.cancel()
+            for (connection in diff.removed) {
+                launchedJobs.remove(connection)?.cancel()
             }
         }
         .onCompletion { cause ->
@@ -78,55 +80,4 @@ fun <T : Connection> Flow<List<T>>.runningCountConnected(predicate: suspend (T) 
                 }
         }
     }.runningFold(0, Int::plus)
-}
-
-data class ReceivedMessages<T>(
-    val incoming: Flow<T>,
-    val receive: suspend (T) -> Unit,
-)
-
-/**
- * Утилита для подписки/отписки на получение сообщений по вебсокету.
- * Алгоритм:
- * 1. Получатель подписывается на [ReceivedMessages.incoming], если это первая подписка — выполняется [onStart].
- * 2. Сообщения, полученные по сокету, через [ReceivedMessages.receive] перенаправляются в [ReceivedMessages.incoming].
- * 3. Получатель отписывается от [ReceivedMessages.incoming], если это была последняя отписка — после таймаута [stopTimeout] выполняется [onCancellation].
- *
- * Под капотом работает через [SharedFlow] и [SharingStarted.WhileSubscribed].
- */
-@OptIn(ExperimentalCoroutinesApi::class)
-fun <T> WebSocketConnection<*, *>.receiveMessages(
-    stopTimeout: Duration = Duration.ZERO,
-    onStart: suspend () -> Unit = {},
-    onCancellation: suspend CoroutineScope.() -> Unit = {},
-): ReceivedMessages<T> {
-    val messages: StateFlow<MutableSharedFlow<T>?> = flow {
-        // 1. начинаем слушать сообщения
-        // Это происходит до вызова onStart, чтобы не просыпать никакие ответы
-        emit(MutableSharedFlow<T>())
-
-        // 2. уведомляем отправителя о том, что хотим получать от него сообщения
-        onStart()
-
-        try {
-            // 3. ждём, пока кто-то подписан на сообщения
-            awaitCancellation()
-        } finally {
-            // 4. Компенсация шага 2 — уведомляем отправителя о том, что сообщения больше не нужны
-            launch { onCancellation() }
-        }
-    }.stateIn(
-        scope = this,
-        started = SharingStarted.WhileSubscribed(
-            stopTimeoutMillis = stopTimeout.inWholeMilliseconds,
-            replayExpirationMillis = 0,
-        ),
-        initialValue = null
-    )
-
-    return ReceivedMessages(
-        incoming = messages.flatMapLatest { it ?: emptyFlow() },
-        // Непрошенные сообщения игнорируются
-        receive = { messages.value?.emit(it) }
-    )
 }
