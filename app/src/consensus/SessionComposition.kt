@@ -88,7 +88,7 @@ private class SessionDevice(
     override val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
     private val _isListenersCountRequested = MutableStateFlow(false)
-    override val isListenersCountRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
+    override val isListenersCountRequested: StateFlow<Boolean> = _isListenersCountRequested.asStateFlow()
 
     suspend fun receiveMessages() {
         connection.incoming.collect { event ->
