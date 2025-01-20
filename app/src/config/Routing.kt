@@ -12,7 +12,6 @@ import mu.KotlinLogging.logger
 fun Application.configureRouting() {
     routing {
         staticResources("/static", "static")
-        staticResources("/rnbo", "rnbo")
 
         portfolioRoutes()
         masterPortfolioRoutes()
