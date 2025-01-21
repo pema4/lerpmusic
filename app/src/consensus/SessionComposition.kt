@@ -11,7 +11,6 @@ class SessionComposition(
     private val sessionScope: CoroutineScope,
 ) : Composition {
     private val activeDevices: MutableStateFlow<List<SessionDevice>> = MutableStateFlow(emptyList())
-    override val isListenersCountRequested: Flow<Boolean> = flowOf(true)
 
     init {
         sessionScope.launch {
@@ -41,6 +40,14 @@ class SessionComposition(
         }
     }
 
+    override val isListenersCountRequested: Flow<Boolean> =
+        activeDevices
+            .runningCountConnected { it.isListenersCountRequested }
+            .onEach { log.info { "listenersCountRequested: $it" } }
+            .map { it > 0 }
+            .flowOn(CoroutineName("session-count-listeners-requested"))
+            .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
+
     override suspend fun updateListenersCount(count: Int) {
         activeDevices.collectConnected { device ->
             device.isListenersCountRequested.collectLatest { requested ->
@@ -64,6 +71,7 @@ class SessionComposition(
             .runningCountConnected { it.isIntensityRequested }
             .onEach { log.info { "intensityRequestedCount: $it" } }
             .map { it > 0 }
+            .flowOn(CoroutineName("session-count-intensity-requested"))
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
