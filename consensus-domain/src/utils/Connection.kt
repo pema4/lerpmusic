@@ -2,6 +2,8 @@ package lerpmusic.consensus.utils
 
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import mu.KotlinLogging
 import kotlin.math.sign
 
@@ -22,13 +24,15 @@ interface ReceivedConnections<T : Connection> {
  */
 fun <T : Connection> CoroutineScope.receiveConnections(): ReceivedConnections<T> {
     val connected = MutableStateFlow<List<T>>(emptyList())
+    val mutex = Mutex()
+
     return object : ReceivedConnections<T> {
         override val connected: StateFlow<List<T>> = connected
 
         override suspend fun add(connection: T) {
-            connected.update { connected ->
-                check(connection !in connected) { "$connection already connected" }
-                connected + connection
+            mutex.withLock {
+                check(connection !in connected.value) { "$connection already connected" }
+                connected.value += connection
             }
             log.info { "$connection connected" }
 
@@ -38,7 +42,12 @@ fun <T : Connection> CoroutineScope.receiveConnections(): ReceivedConnections<T>
                 try {
                     connection.coroutineContext.job.join()
                 } finally {
-                    connected.update { connected -> connected - connection }
+                    withContext(NonCancellable) {
+                        mutex.withLock {
+                            connected.value -= connection
+                        }
+                    }
+
                     log.info { "$connection disconnected" }
                 }
             }
