@@ -1,16 +1,14 @@
 package lerpmusic.website.consensus
 
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.job
-import kotlinx.coroutines.launch
 import lerpmusic.consensus.Audience
 import lerpmusic.consensus.IntensityUpdate
 import lerpmusic.consensus.ListenerRequest
 import lerpmusic.consensus.ListenerResponse
-import lerpmusic.consensus.utils.collectConnected
 import lerpmusic.consensus.utils.flatMapConnected
+import lerpmusic.consensus.utils.onEachConnected
+import lerpmusic.consensus.utils.receiveConnections
 import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 import mu.KotlinLogging
 
@@ -20,16 +18,13 @@ import mu.KotlinLogging
 class SessionAudience(
     private val sessionScope: CoroutineScope,
 ) : Audience {
-    private val activeListeners: MutableStateFlow<List<SessionListener>> = MutableStateFlow(emptyList())
-
-    init {
-        sessionScope.launch {
-            activeListeners.collectConnected { it.receiveMessage() }
-        }
-    }
+    private val listenerConnections = sessionScope.receiveConnections<SessionListener>()
+    private val connectedListeners: StateFlow<List<SessionListener>> = listenerConnections.connected
+        .onEachConnected { it.receiveMessages() }
+        .stateIn(sessionScope, started = SharingStarted.Eagerly, emptyList())
 
     override val listenersCount: StateFlow<Int> =
-        activeListeners
+        connectedListeners
             .map { it.size }
             .onEach { log.info { "listenersCount: $it" } }
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = 0)
@@ -39,30 +34,13 @@ class SessionAudience(
      *
      * Удаление произойдёт автоматически при отключении слушателя.
      */
-    fun addListener(connection: ListenerConnection) {
-        sessionScope.launch(CoroutineName("ListenerConnectionCompletionHandler")) {
-            val newListener = SessionListener(
-                connection = connection,
-            )
-
-            activeListeners.update { listeners ->
-                check(listeners.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
-                listeners + newListener
-            }
-            log.info { "Listener ${connection.id} connected" }
-
-            // При отключении слушателя удаляем его из списка
-            try {
-                connection.coroutineContext.job.join()
-            } finally {
-                activeListeners.update { listeners -> listeners - newListener }
-                log.info { "Listener ${connection.id} disconnected" }
-            }
-        }
+    suspend fun addListener(connection: ListenerConnection) {
+        val newListener = SessionListener(connection)
+        listenerConnections.add(newListener)
     }
 
     override val intensityUpdates: Flow<IntensityUpdate> =
-        activeListeners.flatMapConnected { it.intensityUpdates }
+        connectedListeners.flatMapConnected { it.intensityUpdates }
 }
 
 /**
@@ -83,7 +61,7 @@ private class SessionListener(
      */
     override val intensityUpdates: Flow<IntensityUpdate> = receivedIntensityUpdates.incoming
 
-    suspend fun receiveMessage() {
+    suspend fun receiveMessages() {
         connection.incoming.collect { event ->
             when (event) {
                 ListenerRequest.Action -> {}
@@ -91,6 +69,10 @@ private class SessionListener(
                 ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.receive(IntensityUpdate(0.0, 1.0))
             }
         }
+    }
+
+    override fun toString(): String {
+        return "SessionListener(id=${connection.id})"
     }
 }
 

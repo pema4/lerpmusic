@@ -5,7 +5,7 @@ import kotlinx.coroutines.flow.*
 data class SetDifference<out T>(
     val added: Collection<T>,
     val removed: Collection<T>,
-    val originalCollection: Iterable<T>,
+    val originalCollection: List<T>,
 ) {
     companion object {
         internal val EMPTY: SetDifference<Nothing> = SetDifference(emptySet(), emptySet(), emptyList())
@@ -15,25 +15,34 @@ data class SetDifference<out T>(
 /**
  * [Flow] апдейтов коллекции — добавления и удаления элементов.
  */
-fun <T> Flow<Iterable<T>>.runningSetDifference(): Flow<SetDifference<T>> {
-    return onCompletion { emit(emptySet()) }
-        .runningFold(initial = SetDifference.EMPTY as SetDifference<T>) { (_, _, previousElementSet), elements ->
+fun <T> Flow<List<T>>.runningSetDifference(): Flow<SetDifference<T>> {
+    data class State(
+        val elementSet: Set<T>,
+        val difference: SetDifference<T>,
+    )
+
+    return onCompletion { emit(emptyList()) }
+        .runningFold(initial = State(emptySet(), SetDifference.EMPTY)) { (previousElementSet, _), elements ->
             val elementSet = elements.toSet()
             val added = elementSet - previousElementSet
             val removed = previousElementSet - elementSet
 
-            SetDifference(added, removed, elementSet)
+            State(
+                elementSet = elementSet,
+                difference = SetDifference(added, removed, elements)
+            )
         }
+        .map { it.difference }
         .filter { it.added.isNotEmpty() || it.removed.isNotEmpty() }
 }
 
-fun <T, K> Flow<Iterable<T>>.runningSetDifferenceBy(selector: (T) -> K): Flow<SetDifference<T>> {
+fun <T, K> Flow<List<T>>.runningSetDifferenceBy(selector: (T) -> K): Flow<SetDifference<T>> {
     data class State(
         val elementKeySet: Set<K>,
         val difference: SetDifference<T>,
     )
 
-    return onCompletion { emit(emptySet()) }
+    return onCompletion { emit(emptyList()) }
         .runningFold(initial = State(emptySet(), SetDifference.EMPTY)) { previous, elements ->
             val previousElementKeySet = previous.elementKeySet
             val previousElements = previous.difference.originalCollection

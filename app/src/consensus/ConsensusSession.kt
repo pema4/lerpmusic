@@ -21,12 +21,12 @@ class ConsensusSession(
         coroutineScope.launchConsensus(composition, audience)
     }
 
-    fun addDevice(connection: DeviceConnection, pin: SessionPin) {
+    suspend fun addDevice(connection: DeviceConnection, pin: SessionPin) {
         check(pin == expectedPin)
         composition.addDevice(connection)
     }
 
-    fun addListener(connection: ListenerConnection) {
+    suspend fun addListener(connection: ListenerConnection) {
         audience.addListener(connection)
     }
 }

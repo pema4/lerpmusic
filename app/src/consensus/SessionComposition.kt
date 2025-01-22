@@ -1,47 +1,32 @@
 package lerpmusic.website.consensus
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.collectConnected
+import lerpmusic.consensus.utils.onEachConnected
+import lerpmusic.consensus.utils.receiveConnections
 import lerpmusic.consensus.utils.runningCountConnected
 import mu.KotlinLogging
 
 class SessionComposition(
     private val sessionScope: CoroutineScope,
 ) : Composition {
-    private val activeDevices: MutableStateFlow<List<SessionDevice>> = MutableStateFlow(emptyList())
+    private val deviceConnections = sessionScope.receiveConnections<SessionDevice>()
+    private val connectedDevices: StateFlow<List<SessionDevice>> = deviceConnections.connected
+        .onEachConnected { it.receiveMessages() }
+        .stateIn(sessionScope, started = SharingStarted.Eagerly, emptyList())
 
-    init {
-        sessionScope.launch {
-            activeDevices.collectConnected { it.receiveMessages() }
-        }
-    }
-
-    fun addDevice(connection: DeviceConnection) {
-        sessionScope.launch(CoroutineName("DeviceConnectionCompletionHandler")) {
-            val newDevice = SessionDevice(
-                connection = connection,
-            )
-
-            activeDevices.update { devices ->
-                check(devices.none { it.connection.id == connection.id }) { "Connection $connection already exists" }
-                devices + newDevice
-            }
-            log.info { "Device ${connection.id} connected" }
-
-            // При отключении удаляемся из списка
-            try {
-                connection.coroutineContext.job.join()
-            } finally {
-                activeDevices.update { devices -> devices - newDevice }
-                log.info { "Device ${connection.id} disconnected" }
-            }
-        }
+    suspend fun addDevice(connection: DeviceConnection) {
+        val newDevice = SessionDevice(connection)
+        deviceConnections.add(newDevice)
     }
 
     override val isListenersCountRequested: Flow<Boolean> =
-        activeDevices
+        connectedDevices
             .runningCountConnected { it.isListenersCountRequested }
             .onEach { log.info { "listenersCountRequested: $it" } }
             .map { it > 0 }
@@ -49,7 +34,7 @@ class SessionComposition(
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
 
     override suspend fun updateListenersCount(count: Int) {
-        activeDevices.collectConnected { device ->
+        connectedDevices.collectConnected { device ->
             device.isListenersCountRequested.collectLatest { requested ->
                 if (requested) {
                     device.updateListenersCount(count)
@@ -67,7 +52,7 @@ class SessionComposition(
      * Нужно ли запрашивать [Audience.intensityUpdates].
      */
     override val isIntensityRequested: StateFlow<Boolean> =
-        activeDevices
+        connectedDevices
             .runningCountConnected { it.isIntensityRequested }
             .onEach { log.info { "intensityRequestedCount: $it" } }
             .map { it > 0 }
@@ -75,7 +60,7 @@ class SessionComposition(
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
-        val jobs = activeDevices.value
+        val jobs = connectedDevices.value
             .filter { it.isListenersCountRequested.value }
             .map { device ->
                 device.connection.launch { device.updateIntensity(update) }
@@ -123,6 +108,10 @@ private class SessionDevice(
 
     override suspend fun updateIntensity(update: IntensityUpdate) {
         connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
+    }
+
+    override fun toString(): String {
+        return "SessionDevice(id=${connection.id})"
     }
 }
 

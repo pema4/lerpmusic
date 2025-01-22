@@ -71,7 +71,7 @@ private fun Route.consensusSessionDeviceRoute(
         val sessionId = call.parameters.sessionId
         val sessionPin = SessionPin(call.parameters["sessionPin"]!!)
 
-        withCallIdInMDC(call.callId) {
+        withCallIdInMDC("device-${call.callId}") {
             try {
                 coroutineScope {
                     val connection = DeviceConnection(
@@ -129,7 +129,7 @@ private fun Route.consensusSessionListenerRoute(
     webSocket("/listener") {
         val sessionId = call.parameters.sessionId
 
-        withCallIdInMDC(call.callId) {
+        withCallIdInMDC("listener-${call.callId}") {
             try {
                 coroutineScope {
                     val connection = ListenerConnection(
