@@ -1,6 +1,7 @@
 package lerpmusic.consensus.utils
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import mu.KotlinLogging
 import kotlin.math.sign
@@ -22,28 +23,64 @@ interface ReceivedConnections<T : Connection> {
  */
 fun <T : Connection> CoroutineScope.receiveConnections(): ReceivedConnections<T> {
     val connected = MutableStateFlow<List<T>>(emptyList())
-    return object : ReceivedConnections<T> {
-        override val connected: StateFlow<List<T>> = connected
 
-        override suspend fun add(connection: T) {
-            connected.update { connected ->
-                check(connection !in connected) { "$connection already connected" }
-                connected + connection
-            }
-            log.info { "$connection connected" }
+    data class Command(
+        val connection: T,
+        val action: ConnectionCommandType,
+        val result: CompletableDeferred<Unit> = CompletableDeferred()
+    )
 
-            // При отключении удаляемся из списка
-            // UNDISPATCHED — чтобы при отмене внешнего CoroutineScope блок finally обязательно выполнился
-            launch(start = CoroutineStart.UNDISPATCHED) {
-                try {
-                    connection.coroutineContext.job.join()
-                } finally {
-                    connected.update { connected -> connected - connection }
-                    log.info { "$connection disconnected" }
+    val incomingCommands = Channel<Command>(onUndeliveredElement = { it.result.complete(Unit) })
+
+    incomingCommands
+        .consumeAsFlow()
+        .onEach { command ->
+            val connection = command.connection
+
+            val result: Result<Unit> = runCatching {
+                when (command.action) {
+                    ConnectionCommandType.CONNECT -> {
+                        check(connection !in connected.value) { "$connection already connected" }
+                        connected.value += connection
+                        log.info { "$connection connected" }
+
+                        // При отключении удаляемся из списка
+                        launch {
+                            try {
+                                connection.coroutineContext.job.join()
+                            } finally {
+                                incomingCommands.send(Command(connection, ConnectionCommandType.DISCONNECT))
+                            }
+                        }
+                    }
+
+                    ConnectionCommandType.DISCONNECT -> {
+                        connected.value -= connection
+                        log.info { "$connection disconnected" }
+                    }
                 }
             }
+
+            command.result.completeWith(result)
+        }
+        .onCompletion {
+            connected.value = emptyList()
+        }
+        .launchIn(this)
+
+    return object : ReceivedConnections<T> {
+        override val connected = connected
+        override suspend fun add(connection: T) {
+            val command = Command(connection, ConnectionCommandType.CONNECT)
+            incomingCommands.send(command)
+            command.result.await()
         }
     }
+}
+
+private enum class ConnectionCommandType {
+    CONNECT,
+    DISCONNECT
 }
 
 /**
