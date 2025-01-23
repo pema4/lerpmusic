@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lerp</title>
+    <style>
+        html {
+            height: 100%;
+            /* https://stackoverflow.com/questions/46167604/ios-html-disable-double-tap-to-zoom */
+            touch-action: manipulation;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100%;
+            margin: 0;
+            font-family: 'Helvetica Neue';
+
+        }
+
+        a {
+            color: #aaa
+        }
+
+        #about-me {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 1rem 0rem 1rem 0rem;
+            background: #222;
+        }
+
+        #about-me h1 {
+            display: block;
+            font-size: 2em;
+            margin-block-start: 0.67em;
+            margin-block-end: 0.67em;
+            margin-inline-start: 0px;
+            margin-inline-end: 0px;
+            margin-bottom: 2rem;
+            font-weight: bold;
+            unicode-bidi: isolate;
+        }
+
+        #about-me article {
+            max-width: 600px;
+            justify-content: center;
+            padding: 0rem 1rem 0rem 1rem;
+            margin-bottom: 1rem;
+            text-wrap: break-word;
+        }
+
+        @media (prefers-color-scheme: light) {
+            body {
+                color: #222;
+            }
+
+            html {
+                background: #FFF;
+            }
+
+            #about-me {
+                background: #FFF;
+            }
+        }
+
+        @media (prefers-color-scheme: dark) {
+            body {
+                /* background: #222; */
+                color: #FFF;
+            }
+
+            html {
+                background: #222;
+            }
+
+            #about-me {
+                background: #222;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<div id="about-me">
+    <img src="/static/lerp2.gif" alt=""/>
+
+    <article>
+        <p>Привет!</p>
+        <p>
+            Меня зовут Максим Петелин. Под псевдонимом <i>Lerp</i> я пишу музыку и музыкальный софт, а в реальной жизни
+            я дотошный бэкенд-разработчик.
+        </p>
+
+        <iframe style="border: 0; width: 100%; height: 120px;"
+                src="https://bandcamp.com/EmbeddedPlayer/track=2710964512/size=large/bgcol=ffffff/linkcol=0687f5/tracklist=false/artwork=small/transparent=true/"
+                seamless><a href="https://lerp.bandcamp.com/track/fare">Fare by lerp</a></iframe>
+
+        <p>
+            В своём ТГ-канале я пишу про музыку: <a href="https://t.me/lerpmusic" target="_blank">t.me/lerpmusic</a>.
+            Также лично со мной можно связаться в:
+        </p>
+
+        <p>
+            Также лично со мной можно связаться в:
+        </p>
+
+        <ul>
+            <li><a href="https://t.me/pema4" target="_blank">t.me/pema4</a></li>
+            <li><a href="https://vk.com/pema4" target="_blank">vk.com/pema4</a></li>
+            <li><a href="https://github.com/pema4" target="_blank">github.com/pema4</a></li>
+        </ul>
+
+        <p>
+            2025.
+        </p>
+    </article>
+</div>
+</body>
+
+</html>
