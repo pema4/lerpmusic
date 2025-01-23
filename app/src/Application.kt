@@ -25,7 +25,6 @@ import io.ktor.server.websocket.pingPeriod
 import io.ktor.server.websocket.timeout
 import kotlinx.serialization.json.Json
 import lerpmusic.website.consensus.consensusSessionRoutes
-import lerpmusic.website.masterportfolio.masterPortfolioRoutes
 import lerpmusic.website.portfolio.portfolioRoutes
 import mu.KotlinLogging.logger
 import org.slf4j.event.Level
@@ -45,7 +44,6 @@ fun Application.lerpMusicModule() {
         generate(10, "abcdef0123456789")
     }
 
-//    configureHttpsRedirect()
     configureLogging()
     configureWebSockets()
     configureRouting()
@@ -56,7 +54,6 @@ fun Application.configureRouting() {
         staticResources("/static", "static")
 
         portfolioRoutes()
-        masterPortfolioRoutes()
         consensusSessionRoutes()
 
         get("/") {
