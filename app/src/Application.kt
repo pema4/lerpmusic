@@ -64,6 +64,11 @@ fun Application.configureRouting() {
         get("/index.html") {
             call.respondRedirect("/")
         }
+
+        get("/favicon.ico") {
+            val resource = call.resolveResource("/static/favicon.ico")!!
+            call.respond(resource)
+        }
     }
 }
 
