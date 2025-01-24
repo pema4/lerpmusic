@@ -1,6 +1,7 @@
 package lerpmusic.consensus.utils
 
 import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -140,7 +141,9 @@ fun <T : Connection> Flow<List<T>>.runningCountConnected(predicate: suspend (T) 
                     send(delta)
                 }
         }
-    }.runningFold(0, Int::plus)
+    }
+        .buffer(Channel.UNLIMITED)
+        .runningFold(0, Int::plus)
 }
 
 private val log = KotlinLogging.logger {}
