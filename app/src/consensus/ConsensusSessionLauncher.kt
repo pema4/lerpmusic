@@ -43,6 +43,7 @@ class ConsensusSessionLauncher(
                 }
             }
 
+            val sessionJob = Job(launcherScope.coroutineContext.job)
             launchSession
                 .onEach { log.info("Session started") }
                 .retryWhen { ex, attempts ->
@@ -61,11 +62,15 @@ class ConsensusSessionLauncher(
                         is CancellationException -> log.info("Session cancelled")
                         else -> log.warn("Session completed", ex)
                     }
+
                     sessions -= id
+                    sessionJob.cancel()
                 }
-                .flowOn(MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")) + CoroutineName("session-handler"))
                 .stateIn(
-                    scope = launcherScope,
+                    scope = launcherScope +
+                            sessionJob +
+                            MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")) +
+                            CoroutineName("session-handler"),
                     started = SharingStarted.Companion.WhileSubscribed(
                         stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
                         replayExpirationMillis = 0,

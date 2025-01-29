@@ -11,6 +11,8 @@ import lerpmusic.consensus.utils.onEachConnected
 import lerpmusic.consensus.utils.receiveConnections
 import lerpmusic.consensus.utils.runningCountConnected
 import mu.KotlinLogging
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 class SessionComposition(
     private val sessionScope: CoroutineScope,
@@ -56,6 +58,15 @@ class SessionComposition(
             .runningCountConnected { it.isIntensityRequested }
             .onEach { log.info { "intensityRequestedCount: $it" } }
             .map { it > 0 }
+            .debounce { requested ->
+                // Если все девайсы почему-то отключились, ждём 2 секунды,
+                // затем вырубаем кнопки на сайте
+                if (requested) {
+                    Duration.ZERO
+                } else {
+                    2.seconds
+                }
+            }
             .flowOn(CoroutineName("session-count-intensity-requested"))
             .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
 
