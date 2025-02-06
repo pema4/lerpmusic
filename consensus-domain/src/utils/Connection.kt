@@ -35,11 +35,12 @@ fun <T : Connection> CoroutineScope.receiveConnections(): ReceivedConnections<T>
                 check(connection !in connected.value) { "$connection already connected" }
                 connected.value += connection
             }
-            log.info { "$connection connected" }
 
             // При отключении удаляемся из списка
             // UNDISPATCHED — чтобы при отмене внешнего CoroutineScope блок finally обязательно выполнился
             launch(start = CoroutineStart.UNDISPATCHED) {
+                log.info { "$connection connected" }
+
                 try {
                     connection.coroutineContext.job.join()
                 } finally {
