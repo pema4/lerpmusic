@@ -31,55 +31,58 @@ class ConsensusSessionLauncher(
     fun getSession(id: SessionId): Flow<ConsensusSession?> {
         check(id in expectedIds) { "No session with id $id" }
 
-        val session = sessions.computeIfAbsent(id) {
-            val launchSession: Flow<ConsensusSession?> = flow {
-                coroutineScope {
-                    val session = ConsensusSession(
-                        id = id,
-                        expectedPin = expectedSessionPin,
-                        coroutineScope = this,
-                    )
-                    emit(session)
+        return flow {
+            // Выполняем computeIfAbsent на каждом вызове collect() для Flow, который вернётся из getSession.
+            val session = sessions.computeIfAbsent(id) {
+                val launchSession: Flow<ConsensusSession?> = flow {
+                    coroutineScope {
+                        val session = ConsensusSession(
+                            id = id,
+                            expectedPin = expectedSessionPin,
+                            coroutineScope = this,
+                        )
+                        emit(session)
+                    }
                 }
-            }
 
-            val sessionJob = Job(launcherScope.coroutineContext.job)
-            launchSession
-                .onEach { log.info("Session started") }
-                .retryWhen { ex, attempts ->
-                    log.warn(ex) { "Session exited unexpectedly on attempt #$attempts, retrying..." }
-                    delay(1.seconds)
-                    emit(null)
-                    true
-                }
-                .onCompletion { ex ->
-                    when (ex) {
-                        null -> {
-                            log.info("Session completed normally")
-                            emit(null)
+                val sessionJob = Job(launcherScope.coroutineContext.job)
+                launchSession
+                    .onEach { log.info("Session started") }
+                    .retryWhen { ex, attempts ->
+                        log.warn(ex) { "Session exited unexpectedly on attempt #$attempts, retrying..." }
+                        delay(1.seconds)
+                        emit(null)
+                        true
+                    }
+                    .onCompletion { ex ->
+                        when (ex) {
+                            null -> {
+                                log.info("Session completed normally")
+                                emit(null)
+                            }
+
+                            is CancellationException -> log.info("Session cancelled")
+                            else -> log.warn("Session completed", ex)
                         }
 
-                        is CancellationException -> log.info("Session cancelled")
-                        else -> log.warn("Session completed", ex)
+                        sessions -= id
+                        sessionJob.cancel()
                     }
+                    .stateIn(
+                        scope = launcherScope +
+                                sessionJob +
+                                MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")) +
+                                CoroutineName("session-handler"),
+                        started = SharingStarted.Companion.WhileSubscribed(
+                            stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
+                            replayExpirationMillis = 0,
+                        ),
+                        initialValue = null,
+                    )
+            }
 
-                    sessions -= id
-                    sessionJob.cancel()
-                }
-                .stateIn(
-                    scope = launcherScope +
-                            sessionJob +
-                            MDCContext(MDC.getCopyOfContextMap() + ("call-id" to "session-${id.value}")) +
-                            CoroutineName("session-handler"),
-                    started = SharingStarted.Companion.WhileSubscribed(
-                        stopTimeoutMillis = sessionKeepAlive.inWholeMilliseconds,
-                        replayExpirationMillis = 0,
-                    ),
-                    initialValue = null,
-                )
+            emitAll(session)
         }
-
-        return session
     }
 
     fun shutdown() {
