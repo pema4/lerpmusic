@@ -10,7 +10,7 @@ value class SessionId(val value: String)
 @JvmInline
 value class SessionPin(val value: String) {
     init {
-        check(value matches pinRegex)
+        check(value matches pinRegex) { "Pin $value does not match $pinRegex" }
     }
 
     companion object {

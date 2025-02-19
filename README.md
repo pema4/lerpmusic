@@ -9,8 +9,19 @@
 - используется структура директорий
   из [Amper](https://github.com/JetBrains/amper/blob/fffc216664588c7a369064c157cbc33f68826ed9/docs/Documentation.md#project-layout),
   она проще, чем стандартный стиль `Gradle`/`Maven`.
-- проект хостится на VPS, сейчас деплой идёт через кастомную Gradle-задачу и заливку fat-jar на сервер, которая
-  триггерит рестарт systemd-сервиса.
+- проект хостится на VPS, деплой идёт через `docker compose` и удалённый `docker context`.
+
+## Как запустить
+
+На машине должны быть доступны `docker` и `gradle`.
+Для деплоя используется docker-контекст `lerpmusic`.
+
+```shell
+docker context use lerpmusic # куда деплоить
+gradle jibDockerBuild
+cd app
+SESSION_PIN=123 docker compose up -d
+```
 
 ## Consensus
 
@@ -24,7 +35,7 @@
 Система состоит из трёх приложений, общающихся через `WebSocket`:
 
 - клиентское приложение — примитивное SPA на HTML/JS
-- сервер — написан на Kotlin
+- сервер — написан на Kotlin/Ktor
 - девайсы для Ableton Live — написаны на [Max](https://cycling74.com/products/max) с
   использованием [Node For Max](https://docs.cycling74.com/legacy/max8/vignettes/00_N4M_index)
   и [Kotlin/JS](https://kotlinlang.org/docs/js-overview.html).

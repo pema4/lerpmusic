@@ -3,10 +3,12 @@ import org.jetbrains.gradle.ext.settings
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    kotlin("jvm")
-    alias(libs.plugins.ktor)
-    application
     id("common-conventions")
+    kotlin("jvm")
+    application
+    alias(libs.plugins.ktor)
+    alias(libs.plugins.javaagent.jib)
+    alias(libs.plugins.javaagent.application)
 }
 
 kotlin {
@@ -68,6 +70,8 @@ dependencies {
     implementation(libs.zxing.javase)
     implementation(libs.kotlin.logging)
 
+    javaagent(libs.kotlinx.coroutines.core)
+
     testImplementation(libs.ktor.server.test.host)
     testImplementation(libs.kotest.assertions.ktor)
     testImplementation(libs.kotest.assertions.core)
@@ -84,29 +88,41 @@ application {
     applicationDefaultJvmArgs = listOf("kotlinx.coroutines.debug=on")
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
+jib {
+    from {
+        image =
+            "eclipse-temurin:23.0.2_7-jre-alpine-3.21@sha256:88593498863c64b43be16e8357a3c70ea475fc20a93bf1e07f4609213a357c87"
 
-task("deployWebsite") {
-    dependsOn(":app:buildFatJar")
-    group = "deployment"
-
-    doLast {
-        exec {
-            commandLine(
-                "scp",
-                "build/libs/lerpmusic.jar",
-                "lerpmusic:lerpmusic/lerpmusic.jar.override"
-            )
-        }
-
-        exec {
-            commandLine(
-                "ssh",
-                "lerpmusic",
-                "mv ~/lerpmusic/lerpmusic.jar.override ~/lerpmusic/lerpmusic.jar"
-            )
+        platforms {
+            platform {
+                architecture = "amd64"
+                os = "linux"
+            }
+            platform {
+                architecture = "arm64"
+                os = "linux"
+            }
         }
     }
+
+    to {
+        image = "lerpmusic"
+    }
+
+    container {
+        mainClass = application.mainClass.get()
+        ports = listOf("8080")
+
+        jvmFlags = listOf(
+            "-server",
+            "-Xms512m",
+            "-Xmx1024m",
+            "-server",
+            "-Dkotlinx.coroutines.debug=on",
+        )
+    }
+}
+
+tasks.test {
+    useJUnitPlatform()
 }

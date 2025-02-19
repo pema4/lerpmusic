@@ -1,0 +1,56 @@
+services:
+  lerpmusic:
+    image: lerpmusic:latest  # Image built using Jib
+    container_name: lerpmusic
+    environment:
+      - SESSION_PIN
+      - VIRTUAL_HOST=lerpmusic.ru
+      - VIRTUAL_PORT=8080
+      - LETSENCRYPT_HOST=lerpmusic.ru
+      - LETSENCRYPT_EMAIL=petelin.maksim@live.com
+    expose:
+      - "8080"
+    networks:
+      - proxy
+    restart: always
+
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - html:/usr/share/nginx/html
+      - certs:/etc/nginx/certs:ro
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - proxy
+    restart: unless-stopped
+
+  nginx-proxy-acme:
+    image: nginxproxy/acme-companion
+    container_name: nginx-proxy-acme
+    depends_on:
+      - nginx-proxy
+    volumes:
+      - html:/usr/share/nginx/html
+      - certs:/etc/nginx/certs:rw
+      - acme:/etc/acme.sh
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+      - DEFAULT_EMAIL=petelin.maksim@live.com
+    networks:
+      - proxy
+    restart: unless-stopped
+
+networks:
+  proxy:
+    name: proxy
+
+volumes:
+  certs:
+  vhost:
+  acme:
+  html:
