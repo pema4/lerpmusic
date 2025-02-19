@@ -2,17 +2,14 @@ package lerpmusic.website.consensus
 
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.joinAll
-import kotlinx.coroutines.launch
 import lerpmusic.consensus.*
 import lerpmusic.consensus.utils.collectConnected
 import lerpmusic.consensus.utils.onEachConnected
 import lerpmusic.consensus.utils.receiveConnections
 import lerpmusic.consensus.utils.runningCountConnected
 import mu.KotlinLogging
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 
 class SessionComposition(
     private val sessionScope: CoroutineScope,
@@ -22,65 +19,53 @@ class SessionComposition(
         .onEachConnected { it.receiveMessages() }
         .stateIn(sessionScope, started = SharingStarted.Eagerly, emptyList())
 
-    suspend fun addDevice(connection: DeviceConnection) {
-        val newDevice = SessionDevice(connection)
-        deviceConnections.add(newDevice)
-    }
+    init {
+        connectedDevices
+            .runningCountConnected { it.isIntensityRequested }
+            .onEach { log.info { "intensityRequestedCount: $it" } }
+            .map { it > 0 }
+            .flowOn(CoroutineName("session-count-intensity-requested"))
+            .launchIn(sessionScope)
 
-    override val isListenersCountRequested: Flow<Boolean> =
         connectedDevices
             .runningCountConnected { it.isListenersCountRequested }
             .onEach { log.info { "listenersCountRequested: $it" } }
             .map { it > 0 }
             .flowOn(CoroutineName("session-count-listeners-requested"))
-            .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
+            .launchIn(sessionScope)
+    }
 
-    override suspend fun updateListenersCount(count: Int) {
+    suspend fun addDevice(connection: DeviceConnection) {
+        val newDevice = SessionDevice(connection)
+        deviceConnections.add(newDevice)
+    }
+
+    override suspend fun updateListenersCount(listenersCount: Flow<Int>) = coroutineScope {
+        val sharedListenersCount = listenersCount.shareIn(
+            this,
+            replay = 0,
+            started = SharingStarted.WhileSubscribed(replayExpirationMillis = 0),
+        )
+
         connectedDevices.collectConnected { device ->
-            device.isListenersCountRequested.collectLatest { requested ->
-                if (requested) {
-                    device.updateListenersCount(count)
-                }
-            }
+            device.updateListenersCount(sharedListenersCount)
         }
     }
 
-    override val events: Flow<NoteEvent> = emptyFlow()
-
-    override suspend fun play(ev: NoteEvent) {
-    }
-
-    /**
-     * Нужно ли запрашивать [Audience.intensityUpdates].
-     */
-    override val isIntensityRequested: StateFlow<Boolean> =
-        connectedDevices
-            .runningCountConnected { it.isIntensityRequested }
-            .onEach { log.info { "intensityRequestedCount: $it" } }
-            .map { it > 0 }
-            .debounce { requested ->
+    override suspend fun updateIntensity(intensity: Flow<IntensityUpdate>) = coroutineScope {
+        val sharedIntensity = intensity.shareIn(
+            this,
+            replay = 0,
+            started = SharingStarted.WhileSubscribed(
                 // Если все девайсы почему-то отключились, ждём 2 секунды,
                 // затем вырубаем кнопки на сайте
-                if (requested) {
-                    Duration.ZERO
-                } else {
-                    2.seconds
-                }
-            }
-            .flowOn(CoroutineName("session-count-intensity-requested"))
-            .stateIn(sessionScope, SharingStarted.Eagerly, initialValue = false)
+                stopTimeoutMillis = 2000,
+                replayExpirationMillis = 0,
+            ),
+        )
 
-    override suspend fun updateIntensity(update: IntensityUpdate) {
-        val jobs = connectedDevices.value
-            .filter { it.isListenersCountRequested.value }
-            .map { device ->
-                device.connection.launch { device.updateIntensity(update) }
-            }
-
-        try {
-            jobs.joinAll()
-        } finally {
-            jobs.forEach { it.cancel() }
+        connectedDevices.collectConnected {
+            it.updateIntensity(sharedIntensity)
         }
     }
 }
@@ -89,10 +74,10 @@ private class SessionDevice(
     val connection: DeviceConnection,
 ) : Composition, CoroutineScope by connection {
     private val _isIntensityRequested = MutableStateFlow(false)
-    override val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
+    val isIntensityRequested: StateFlow<Boolean> = _isIntensityRequested.asStateFlow()
 
     private val _isListenersCountRequested = MutableStateFlow(false)
-    override val isListenersCountRequested: StateFlow<Boolean> = _isListenersCountRequested.asStateFlow()
+    val isListenersCountRequested: StateFlow<Boolean> = _isListenersCountRequested.asStateFlow()
 
     suspend fun receiveMessages() {
         connection.incoming.collect { event ->
@@ -107,18 +92,24 @@ private class SessionDevice(
         }
     }
 
-    override suspend fun updateListenersCount(count: Int) {
-        connection.send(DeviceResponse.ListenersCount(count))
+    override suspend fun updateListenersCount(listenersCount: Flow<Int>) {
+        isListenersCountRequested.collectLatest { requested ->
+            if (requested) {
+                listenersCount.conflate().collect { count ->
+                    connection.send(DeviceResponse.ListenersCount(count))
+                }
+            }
+        }
     }
 
-    override val events: Flow<NoteEvent>
-        get() = emptyFlow()
-
-    override suspend fun play(ev: NoteEvent) {
-    }
-
-    override suspend fun updateIntensity(update: IntensityUpdate) {
-        connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
+    override suspend fun updateIntensity(intensity: Flow<IntensityUpdate>) {
+        isIntensityRequested.collectLatest { requested ->
+            if (requested) {
+                intensity.conflateDeltas().collect { update ->
+                    connection.send(DeviceResponse.IntensityUpdate(update.decrease, update.increase))
+                }
+            }
+        }
     }
 
     override fun toString(): String {
@@ -127,4 +118,3 @@ private class SessionDevice(
 }
 
 private val log = KotlinLogging.logger {}
-

@@ -2,6 +2,7 @@ package lerpmusic.consensus.device
 
 import arrow.core.raise.nullable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.onEach
 import lerpmusic.consensus.Composition
@@ -10,11 +11,15 @@ import lerpmusic.consensus.NoteEvent
 
 class DeviceComposition(
     private val max: Max,
-    override val isIntensityRequested: Flow<Boolean>,
-    override val isListenersCountRequested: Flow<Boolean>,
+    private val isIntensityRequested: Flow<Boolean>,
+    private val isListenersCountRequested: Flow<Boolean>,
 ) : Composition {
-    override suspend fun updateListenersCount(count: Int) {
-        max.outlet("listeners", count)
+    override suspend fun updateListenersCount(listenersCount: Flow<Int>) {
+        isListenersCountRequested.collectLatest { requested ->
+            listenersCount.takeIf { requested }?.collect { count ->
+                max.outlet("listeners", count)
+            }
+        }
     }
 
     override val events: Flow<NoteEvent> =
@@ -40,7 +45,11 @@ class DeviceComposition(
         }
     }
 
-    override suspend fun updateIntensity(update: IntensityUpdate) {
-        max.outlet("intensity", update.decrease, update.increase)
+    override suspend fun updateIntensity(intensity: Flow<IntensityUpdate>) {
+        isIntensityRequested.collectLatest { requested ->
+            intensity.takeIf { requested }?.collect { update ->
+                max.outlet("intensity", update.decrease, update.increase)
+            }
+        }
     }
 }

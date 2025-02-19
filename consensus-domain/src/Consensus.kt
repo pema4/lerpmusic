@@ -48,22 +48,13 @@ fun CoroutineScope.launchConsensus(
     }
 
     launch {
-        composition.isIntensityRequested.collectLatest { requested ->
-            if (requested) {
-                audience.intensityUpdates
-                    .conflateDeltas()
-                    .collect { composition.updateIntensity(it) }
-            }
-        }
+        val intensityUpdates = audience.intensityUpdates.conflateDeltas()
+        composition.updateIntensity(intensityUpdates)
     }
 
     launch {
-        composition.isListenersCountRequested.collectLatest { requested ->
-            if (requested) {
-                audience.listenersCount
-                    .collectLatest { composition.updateListenersCount(it) }
-            }
-        }
+        val listenersCount = audience.listenersCount.conflate()
+        composition.updateListenersCount(listenersCount)
     }
 }
 
@@ -72,27 +63,21 @@ interface CompositionEvent {
 }
 
 interface Composition {
-    val isListenersCountRequested: Flow<Boolean>
-
-    suspend fun updateListenersCount(count: Int)
+    suspend fun updateListenersCount(listenersCount: Flow<Int>)
 
     /**
      * Входящие MIDI-события.
      * Чтобы воспроизвести событие, нужно вызвать на нём метод [play].
      */
     val events: Flow<NoteEvent>
+        get() = emptyFlow()
 
     /**
      * Воспроизвести событие, полученное из [events].
      */
-    suspend fun play(ev: NoteEvent)
+    suspend fun play(ev: NoteEvent) {}
 
-    /**
-     * Нужно ли запрашивать [Audience.intensityUpdates].
-     */
-    val isIntensityRequested: Flow<Boolean>
-
-    suspend fun updateIntensity(update: IntensityUpdate)
+    suspend fun updateIntensity(intensity: Flow<IntensityUpdate>)
 }
 
 interface Audience {
