@@ -83,8 +83,6 @@ private class SessionDevice(
         connection.incoming.collect { event ->
             when (event) {
                 DeviceRequest.Ping -> connection.send(DeviceResponse.Pong)
-                is DeviceRequest.AskNote -> {}
-                is DeviceRequest.CancelNote -> {}
                 DeviceRequest.ReceiveIntensityUpdates -> _isIntensityRequested.value = true
                 DeviceRequest.CancelIntensityUpdates -> _isIntensityRequested.value = false
                 is DeviceRequest.ReceiveListenersCount -> _isListenersCountRequested.value = event.receive

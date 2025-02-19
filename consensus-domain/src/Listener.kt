@@ -9,10 +9,6 @@ import kotlinx.serialization.Serializable
 @Serializable
 sealed class ListenerRequest {
     @Serializable
-    @SerialName("Action")
-    data object Action : ListenerRequest()
-
-    @Serializable
     @SerialName("IncreaseIntensity")
     data object IncreaseIntensity : ListenerRequest()
 
@@ -26,13 +22,6 @@ sealed class ListenerRequest {
  */
 @Serializable
 sealed class ListenerResponse {
-    @Serializable
-    @SerialName("AskForAction")
-    data object AskForAction : ListenerResponse()
-
-    @Serializable
-    @SerialName("Cancel")
-    data object Cancel : ListenerResponse()
 
     @Serializable
     @SerialName("ReceiveIntensityUpdates")

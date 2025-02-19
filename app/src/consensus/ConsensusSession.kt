@@ -1,10 +1,23 @@
 package lerpmusic.website.consensus
 
 import kotlinx.coroutines.CoroutineScope
-import lerpmusic.consensus.SessionId
-import lerpmusic.consensus.SessionPin
 import lerpmusic.consensus.launchConsensus
 import mu.KotlinLogging
+
+@JvmInline
+value class SessionId(val value: String)
+
+@JvmInline
+value class SessionPin(val value: String) {
+    init {
+        check(value matches pinRegex)
+    }
+
+    companion object {
+        val pinRegex = "[a-zA-Z0-9]+".toRegex()
+    }
+}
+
 
 /**
  * Session

@@ -1,5 +1,6 @@
 plugins {
     idea
+    id("org.jetbrains.gradle.plugin.idea-ext")
 }
 
 group = "ru.lerpmusic"

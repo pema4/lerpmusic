@@ -36,9 +36,9 @@ fun <T> Flow<List<T>>.runningSetDifference(): Flow<SetDifference<T>> {
         .filter { it.added.isNotEmpty() || it.removed.isNotEmpty() }
 }
 
-fun <T, K> Flow<List<T>>.runningSetDifferenceBy(selector: (T) -> K): Flow<SetDifference<T>> {
+fun <T> Flow<List<T>>.runningSetDifferenceBy(selector: (T) -> Any?): Flow<SetDifference<T>> {
     data class State(
-        val elementKeySet: Set<K>,
+        val elementKeySet: Set<Any?>,
         val difference: SetDifference<T>,
     )
 

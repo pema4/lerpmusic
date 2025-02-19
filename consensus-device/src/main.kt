@@ -77,7 +77,7 @@ fun main() = SuspendApp {
                     openServerConnection(configuration) { serverConnection ->
                         launchConsensus(
                             composition = DeviceComposition(max, isIntensityRequested, isListenersCountRequested),
-                            audience = DeviceAudience(serverConnection, max)
+                            audience = DeviceAudience(serverConnection)
                         )
 
                         max.outlet("status", "running")

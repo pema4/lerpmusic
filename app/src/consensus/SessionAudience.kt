@@ -64,7 +64,6 @@ private class SessionListener(
     suspend fun receiveMessages() {
         connection.incoming.collect { event ->
             when (event) {
-                ListenerRequest.Action -> {}
                 ListenerRequest.DecreaseIntensity -> receivedIntensityUpdates.receive(IntensityUpdate(1.0, 0.0))
                 ListenerRequest.IncreaseIntensity -> receivedIntensityUpdates.receive(IntensityUpdate(0.0, 1.0))
             }

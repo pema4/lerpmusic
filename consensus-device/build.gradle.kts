@@ -1,3 +1,6 @@
+import org.jetbrains.gradle.ext.packagePrefix
+import org.jetbrains.gradle.ext.settings
+
 plugins {
     id("device-conventions")
 }
@@ -29,6 +32,15 @@ kotlin {
             implementation(libs.kotlin.test)
             implementation(libs.kotlinx.coroutines.test)
             implementation(libs.kotest.assertions.core)
+        }
+    }
+}
+
+idea {
+    module {
+        settings {
+            packagePrefix["src"] = "lerpmusic.consensus.device"
+            packagePrefix["test"] = "lerpmusic.consensus.device"
         }
     }
 }

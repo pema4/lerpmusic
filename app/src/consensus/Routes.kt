@@ -24,8 +24,6 @@ import kotlinx.coroutines.channels.ClosedReceiveChannelException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
-import lerpmusic.consensus.SessionId
-import lerpmusic.consensus.SessionPin
 import lerpmusic.website.util.withCallIdInMDC
 import mu.KotlinLogging
 import java.awt.image.BufferedImage

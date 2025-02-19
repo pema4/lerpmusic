@@ -1,3 +1,5 @@
+import org.jetbrains.gradle.ext.packagePrefix
+import org.jetbrains.gradle.ext.settings
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -30,6 +32,16 @@ java {
     toolchain {
         sourceCompatibility = JavaVersion.VERSION_21
         targetCompatibility = JavaVersion.VERSION_21
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+idea {
+    module {
+        settings {
+            packagePrefix["src"] = "lerpmusic.website"
+            packagePrefix["test"] = "lerpmusic.website"
+        }
     }
 }
 
@@ -96,11 +108,5 @@ task("deployWebsite") {
                 "mv ~/lerpmusic/lerpmusic.jar.override ~/lerpmusic/lerpmusic.jar"
             )
         }
-    }
-}
-
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
     }
 }

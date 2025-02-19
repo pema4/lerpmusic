@@ -15,4 +15,9 @@ dependencies {
         "org.jetbrains.kotlin.plugin.serialization.gradle.plugin",
         libs.versions.kotlin.asProvider().get()
     )
+    implementation(
+        "org.jetbrains.gradle.plugin.idea-ext",
+        "org.jetbrains.gradle.plugin.idea-ext.gradle.plugin",
+        libs.versions.idea.ext.get(),
+    )
 }

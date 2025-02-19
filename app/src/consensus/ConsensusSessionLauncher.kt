@@ -3,8 +3,6 @@ package lerpmusic.website.consensus
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.slf4j.MDCContext
-import lerpmusic.consensus.SessionId
-import lerpmusic.consensus.SessionPin
 import mu.KotlinLogging
 import org.slf4j.MDC
 import java.util.concurrent.ConcurrentHashMap

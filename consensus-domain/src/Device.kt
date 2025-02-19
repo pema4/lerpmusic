@@ -13,18 +13,6 @@ sealed class DeviceRequest {
     data object Ping : DeviceRequest()
 
     @Serializable
-    @SerialName("AskNote")
-    data class AskNote(
-        val note: Note,
-    ) : DeviceRequest()
-
-    @Serializable
-    @SerialName("CancelNote")
-    data class CancelNote(
-        val note: Note,
-    ) : DeviceRequest()
-
-    @Serializable
     @SerialName("ReceiveIntensityUpdates")
     data object ReceiveIntensityUpdates : DeviceRequest()
 
@@ -49,12 +37,6 @@ sealed class DeviceResponse {
     @Serializable
     @SerialName("ListenersCount")
     data class ListenersCount(val count: Int) : DeviceResponse()
-
-    @Serializable
-    @SerialName("PlayNote")
-    data class PlayNote(
-        val note: Note
-    ) : DeviceResponse()
 
     @Serializable
     @SerialName("IntensityUpdate")
