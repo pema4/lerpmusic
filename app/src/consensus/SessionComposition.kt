@@ -41,10 +41,11 @@ class SessionComposition(
     }
 
     override suspend fun updateListenersCount(listenersCount: Flow<Int>) = coroutineScope {
-        val sharedListenersCount = listenersCount.shareIn(
+        // Здесь используется stateIn — возвращаем последнее увиденное значение или 0
+        val sharedListenersCount = listenersCount.stateIn(
             this,
-            replay = 0,
-            started = SharingStarted.WhileSubscribed(replayExpirationMillis = 0),
+            initialValue = 0,
+            started = SharingStarted.WhileSubscribed(),
         )
 
         connectedDevices.collectConnected { device ->
@@ -53,6 +54,7 @@ class SessionComposition(
     }
 
     override suspend fun updateIntensity(intensity: Flow<IntensityUpdate>) = coroutineScope {
+        // Здесь используется shareIn без буфера — читаем только новые сообщения
         val sharedIntensity = intensity.shareIn(
             this,
             replay = 0,
