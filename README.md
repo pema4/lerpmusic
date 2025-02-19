@@ -19,8 +19,8 @@
 ```shell
 docker context use lerpmusic # куда деплоить
 gradle jibDockerBuild
-cd app
-SESSION_PIN=123 docker compose up -d
+export SESSION_PIN=123
+docker compose -f app/docker-compose.yml up -d
 ```
 
 ## Consensus
