@@ -13,11 +13,10 @@
 
 ## Как запустить
 
-На машине должны быть доступны `docker` и `gradle`.
-Для деплоя используется docker-контекст `lerpmusic`.
+На разработческой машине и на сервере должны быть доступны `docker` и `gradle`.
 
 ```shell
-docker context use lerpmusic # куда деплоить
+docker context use lerpmusic # удалённый хост, куда деплоить
 gradle jibDockerBuild
 export SESSION_PIN=123
 docker compose -f app/docker-compose.yml up -d
