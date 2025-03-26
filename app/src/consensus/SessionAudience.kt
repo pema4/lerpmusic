@@ -11,6 +11,7 @@ import lerpmusic.consensus.utils.onEachConnected
 import lerpmusic.consensus.utils.receiveConnections
 import lerpmusic.consensus.utils.receiveMessagesWithSubscription
 import mu.KotlinLogging
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Аудитория — несколько слушателей.
@@ -54,6 +55,8 @@ private class SessionListener(
     private val receivedIntensityUpdates = connection.receiveMessagesWithSubscription<IntensityUpdate>(
         onStart = { connection.send(ListenerResponse.ReceiveIntensityUpdates) },
         onCancellation = { connection.send(ListenerResponse.CancelIntensityUpdates) },
+        // Ждём несколько секунд перед отключением кнопок — чтобы не моргать при сбоях на читающей стороне
+        subscriptionKeepAlive = 2.seconds,
     )
 
     /**

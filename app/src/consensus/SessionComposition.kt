@@ -23,14 +23,12 @@ class SessionComposition(
         connectedDevices
             .runningCountConnected { it.isIntensityRequested }
             .onEach { log.info { "intensityRequestedCount: $it" } }
-            .map { it > 0 }
             .flowOn(CoroutineName("session-count-intensity-requested"))
             .launchIn(sessionScope)
 
         connectedDevices
             .runningCountConnected { it.isListenersCountRequested }
             .onEach { log.info { "listenersCountRequested: $it" } }
-            .map { it > 0 }
             .flowOn(CoroutineName("session-count-listeners-requested"))
             .launchIn(sessionScope)
     }
@@ -58,12 +56,7 @@ class SessionComposition(
         val sharedIntensity = intensity.shareIn(
             this,
             replay = 0,
-            started = SharingStarted.WhileSubscribed(
-                // Если все девайсы почему-то отключились, ждём 2 секунды,
-                // затем вырубаем кнопки на сайте
-                stopTimeoutMillis = 2000,
-                replayExpirationMillis = 0,
-            ),
+            started = SharingStarted.WhileSubscribed(),
         )
 
         connectedDevices.collectConnected {
